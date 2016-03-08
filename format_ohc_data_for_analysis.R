@@ -3,7 +3,7 @@
 # - purpose:
 # - inputs:
 # - outputs:
-# - keywords:
+# - keywords: #brule
 # - general:
 ######################################################################
 
@@ -31,9 +31,6 @@
   
   # load long ohc file
   in_ohc_2012 <- fread("X:/LFS-Education Outcomes/raw_data/dcf_placement_2012.csv")
-  
-  # load id xwalk
-  in_id_xwalk <- fread("X:/LFS-Education Outcomes/raw_data/xwalk_child_id.csv")
 
 ############################
 # remove duplicate entries #
@@ -73,27 +70,60 @@
   
   # create flag for in placement year
   sub_ohc_2012[, flag_in_year := 0]
-  sub_ohc_2012[plcmt_begin_date <= 2012 & plcmt_end_year >= 2012, flag_in_year := 1]
+  sub_ohc_2012[plcmt_begin_year <= 2012 & plcmt_end_year >= 2012, flag_in_year := 1]
   
-  # subset to placements from current year
+  # subset to placements from current year #brule
   sub_ohc_2012 <- subset(sub_ohc_2012, flag_in_year == 1)
 
-  
+################################
+# calculate days per placement #
+################################
 
+  # convert placement date vars to date
+  sub_ohc_2012[, lfs_begin_date := as.Date(plcmt_begin_date, "%Y-%m-%d")]
+  sub_ohc_2012[, lfs_end_date := as.Date(plcmt_end_date, "%Y-%m-%d")]
   
+  # calculate number of days in placement #brule
+  sub_ohc_2012[plcmt_begin_year < 2012 & plcmt_end_year > 2012, lfs_ohc_days := 365]
+  sub_ohc_2012[plcmt_begin_year < 2012 & plcmt_end_year == 2012, lfs_ohc_days := lfs_end_date - as.Date("2012-01-01")]
+  sub_ohc_2012[plcmt_begin_year == 2012 & plcmt_end_year == 2012, lfs_ohc_days := lfs_end_date - lfs_begin_date]
+  sub_ohc_2012[plcmt_begin_year == 2012 & plcmt_end_year > 2012, lfs_ohc_days := as.Date("2012-12-31") - lfs_begin_date]
   
+#######################################
+# cast placements wide for each child #
+#######################################
+  
+  # # sort based on child id and placement start date
+  # setorder(sub_ohc_2012, child_id, lfs_end_date)
+  # 
+  # wide_set <- dcast.data.table(sub_ohc_2012, child_id ~ placement_id, value.var = c("lfs_begin_date", "lfs_end_date", "lfs_ohc_days"))
+  
+#################################
+# aggregate placements by child #
+#################################
+  
+  # aggregate placements by child
+  agg_plcmt_by_child <- sub_ohc_2012[, list(num_plcmt = .N,
+                                            tot_plcmt_days = sum(lfs_ohc_days)),
+                                     by = child_id]
+  
+    
+  # sort based on child id and placement start date
+  setorder(sub_ohc_2012, child_id, -lfs_ohc_days)
+  
+  # subset to one row per child, keeping longest ohc placement #brule
+  unique_child_set <- ea_no_dups(sub_ohc_2012, "child_id")
+
+  # keep only child specific vars
+  unique_child_set <- subset(unique_child_set, select = c(child_id, child_dob, child_gender, child_race, child_ethnicity, child_hispanic, 
+                                                          child_disability, disabilities, dcf_plcmt_type, fl_mntal_retardatn, fl_phys_disabled, 
+                                                          fl_vis_hearing_impr, fl_emotion_dstrbd, fl_othr_spc_care, fl_lrn_disability, region, 
+                                                          provider_county, removal_date, discharge_date, tpr_finalization_date, adoption_final_date))
+  
+  # merge aggregate placement info with child info
+  full_set <- ea_merge(unique_child_set, agg_plcmt_by_child, "child_id")
 
 
-
-  
-  
-  care_type
-days_plcmt_in_rpt_period
-child_level_of_need
-site_region
-end_reason
-discharge
-discharge_reason
   
   
 ##########
