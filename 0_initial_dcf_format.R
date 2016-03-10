@@ -24,7 +24,7 @@
 #############
 
   # store raw directory path
-  p_dir_raw <- "X:/LFS-Education Outcomes/raw_data/dcf_excel/"
+  p_dir_raw <- "X:/LFS-Education Outcomes/data/raw_data/dcf_excel/"
   
   # save names of files without file extension
   p_names_dcf <- list.files(p_dir_raw)
@@ -33,9 +33,9 @@
   # output toggle
   p_opt_exp <- 1
 
-#####################################
-# load and stack state_teacher data #
-#####################################
+#############################################
+# define function output excel files as csv #
+#############################################
 
   # define function to open data
   func_open_dcf <- function(x_file) {
