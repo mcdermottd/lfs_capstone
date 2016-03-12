@@ -1,7 +1,7 @@
 #####################################################################################################################################################
 # notes:
-# - purpose: perform initial, simple format of OHC files
-# - inputs: full set of OHC excel files
+# - purpose: remove NA rows, save as CSV files
+# - inputs: full set of OHC raw excel files
 # - outputs: corresponding CSV files
 # - keywords:
 # - general:
@@ -48,14 +48,11 @@
       # read in raw file
       raw_file <- data.table(read_excel(paste0(p_dir_raw, m_file, ".xlsx")))
       
-      # set colnames to lowercase
-      setnames(raw_file, colnames(raw_file), tolower(colnames(raw_file)))
-      
       # remove NA rows from ohc data
-      raw_file <- subset(raw_file, !is.na(child_id))
+      raw_file <- subset(raw_file, rowSums(is.na(raw_file)) != ncol(raw_file))
       
       # output formatted file
-      if (p_opt_exp == 1) { ea_write(raw_file, paste0("X:/LFS-Education Outcomes/raw_data/", m_file, ".csv")) }
+      if (p_opt_exp == 1) { ea_write(raw_file, paste0("X:/LFS-Education Outcomes/data/raw_data/", m_file, ".csv")) }
     }
   }
   
