@@ -107,79 +107,74 @@
 
   # calc number of ohc days and plcmt days 
   ohc_data_full[, tot_ohc_days := discharge_date - removal_date]
-  ohc_data_full[, tot_plcmt_days := plcmt_end_date - plcmt_begin_date]
+  ohc_data_full[, plcmt_days := plcmt_end_date - plcmt_begin_date]
 
-      
+###################################################
+# remove placements with the same start/end dates #
+###################################################
   
+  # sort based on child id, placement dates, and end reason (end reason = NA appears last) #brule
+  setorder(ohc_data_full, child_id, plcmt_begin_date, plcmt_end_date, end_reason, na.last = TRUE)
   
-      # sort based on child id, placement dates, and end reason (end reason = NA appears last) #brule
-      setorder(ohc_data_full, child_id, plcmt_begin_date, plcmt_end_date, end_reason, na.last = TRUE)
-      
-      # remove duplicates based on id, and placement start and end date #brule
-      ohc_data_no_dups <- ea_no_dups(ohc_data_full, c("child_id", "plcmt_begin_date", "plcmt_end_date"))   
-      
+  # remove duplicates based on id, and placement start and end date #brule
+  ohc_data_no_dups <- ea_no_dups(ohc_data_full, c("child_id", "plcmt_begin_date", "plcmt_end_date"))   
 
-      
-    ##########################
-    # subset to current year #
-    ##########################
-      
-      # copy formatted set
-      sub_ohc_data <- copy(format_ohc_data)
-      
-      # create flag for in placement year #brule
-      sub_ohc_data[, flag_in_year := 0]
-      sub_ohc_data[plcmt_begin_year <= p_data_year & plcmt_end_year >= p_data_year, flag_in_year := 1]
-      
-      # subset to placements from current year #brule
-      sub_ohc_data <- subset(sub_ohc_data, flag_in_year == 1)
+#################################
+# aggregate placements by child #
+#################################
+  
+  # aggregate placements by child
+  agg_plcmt_by_child <- ohc_data_no_dups[, list(tot_num_plcmts = .N,
+                                                tot_plcmt_days = sum(plcmt_days)),
+                                         by = "child_id"]
+  
+  # take average number of placement and total placement days
+  a_avg_plcmts <- agg_plcmt_by_child[, list(avg_plcmts = mean(tot_num_plcmts),
+                                            avg_plcmt_days = mean(tot_plcmt_days, na.rm = TRUE))]
+
+##########################
+# subset to current year #
+##########################
+  
+  # copy formatted set
+  sub_ohc_data <- copy(format_ohc_data)
+  
+  # create flag for in placement year #brule
+  sub_ohc_data[, flag_in_year := 0]
+  sub_ohc_data[plcmt_begin_year <= p_data_year & plcmt_end_year >= p_data_year, flag_in_year := 1]
+  
+  # subset to placements from current year #brule
+  sub_ohc_data <- subset(sub_ohc_data, flag_in_year == 1)
     
-    ###############################################################
-    # subset to unique child id and merge with agg placement info #
-    ###############################################################
-      
-      # sort based on child id and placement start date
-      setorder(sub_ohc_data, child_id, -lfs_ohc_days)
-      
-      # subset to one row per child, keeping longest ohc placement #brule
-      unique_child_set <- ea_no_dups(sub_ohc_data, "child_id")
-    
-      # keep only child specific vars #NEED TO KEEP THIRD FRIDAY FLAG
-      unique_child_set <- subset(unique_child_set, select = c(child_id, child_dob, child_gender, child_race, child_ethnicity, child_hispanic, 
-                                                              child_disability, disabilities, dcf_plcmt_type, region, provider_county, ohc_begin_year,
-                                                              ohc_end_year, removal_date, discharge_date, tpr_finalization_date, adoption_final_date))
-      
-      # merge aggregate placement info with child info
-      full_set <- ea_merge(unique_child_set, agg_plcmt_by_child, "child_id", opt_print = 0)
-      
-      # add in year of data
-      full_set[, dcf_year := p_data_year]
-      ea_colorder(full_set, "dcf_year")
-      
+###############################################################
+# subset to unique child id and merge with agg placement info #
+###############################################################
+  
+  # sort based on child id and placement start date
+  setorder(sub_ohc_data, child_id, -lfs_ohc_days)
+  
+  # subset to one row per child, keeping longest ohc placement #brule
+  unique_child_set <- ea_no_dups(sub_ohc_data, "child_id")
+
+  # keep only child specific vars #NEED TO KEEP THIRD FRIDAY FLAG
+  unique_child_set <- subset(unique_child_set, select = c(child_id, child_dob, child_gender, child_race, child_ethnicity, child_hispanic, 
+                                                          child_disability, disabilities, dcf_plcmt_type, region, provider_county, ohc_begin_year,
+                                                          ohc_end_year, removal_date, discharge_date, tpr_finalization_date, adoption_final_date))
+  
+  # merge aggregate placement info with child info
+  full_set <- ea_merge(unique_child_set, agg_plcmt_by_child, "child_id", opt_print = 0)
+  
+  # add in year of data
+  full_set[, dcf_year := p_data_year]
+  ea_colorder(full_set, "dcf_year")
+  
 
   
   
       
-    #######################################
-    # cast placements wide for each child #
-    #######################################
+
       
-      # # sort based on child id and placement start date
-      # setorder(sub_ohc_data, child_id, lfs_end_date)
-      # 
-      # wide_set <- dcast.data.table(sub_ohc_data, child_id ~ placement_id, value.var = c("lfs_begin_date", "lfs_end_date", "lfs_ohc_days"))
-      
-    #################################
-    # aggregate placements by child #
-    #################################
-      
-      # aggregate placements by child
-      yr_agg_plcmt_by_child <- sub_ohc_data[, list(yr_n_plcmts = .N,
-                                                yr_plcmt_days = sum(lfs_ohc_days)),
-                                            by = child_id]
-      
-      # if total placement days > 365, set to 365 #brule
-      agg_plcmt_by_child[yr_plcmt_days > 365, yr_plcmt_days := 365]
+
   
 ######################
 # merge with id vars #
