@@ -17,6 +17,7 @@
   
   # load packages
   library(data.table)
+  library(lubridate)
 
 #############
 # set parms #
@@ -89,36 +90,52 @@
   # remove all exact duplicates from stacked data
   ohc_data_full <- ea_no_dups(ohc_data_full, opt_key_all = 1) 
 
-#################################
-# add additional placement vars #
-#################################
-  
-  # change var names to lowercase
-  setnames(ohc_data_full, colnames(ohc_data_full), tolower(colnames(ohc_data_full)))
-  
-  # change dates to date type vars
-  ohc_data_full[, 37:43] <- lapply(ohc_data_full[, 37:43, with = FALSE], function(x_var) {as.Date(x_var, "%Y-%m-%d")})
-
-  # create begin and end years (ohc and specific placement)
-  ohc_data_full[, ohc_begin_year := as.numeric(format(removal_date, "%Y"))]
-  ohc_data_full[, ohc_end_year := as.numeric(format(discharge_date, "%Y"))]
-  ohc_data_full[, plcmt_begin_year := as.numeric(format(plcmt_begin_date, "%Y"))]
-  ohc_data_full[, plcmt_end_year := as.numeric(format(plcmt_end_date, "%Y"))]
-
-  # calc number of ohc days and plcmt days 
-  ohc_data_full[, tot_ohc_days := difftime(discharge_date, removal_date, units = "days")]
-  ohc_data_full[, plcmt_days := difftime(plcmt_end_date, plcmt_begin_date, units = "days")]
-
 ###################################################
 # remove placements with the same start/end dates #
 ###################################################
+  
+  # change var names to lowercase
+  setnames(ohc_data_full, colnames(ohc_data_full), tolower(colnames(ohc_data_full)))
   
   # sort based on child id, placement dates, and end reason (end reason = NA appears last) #brule
   setorder(ohc_data_full, child_id, plcmt_begin_date, plcmt_end_date, end_reason, na.last = TRUE)
   
   # remove duplicates based on id, and placement start and end date #brule
-  ohc_data_no_dups <- ea_no_dups(ohc_data_full, c("child_id", "plcmt_begin_date", "plcmt_end_date"))   
+  ohc_data_no_dups <- ea_no_dups(ohc_data_full, c("child_id", "plcmt_begin_date", "plcmt_end_date"))
+  
+#################################
+# add additional placement vars #
+#################################
+  
+  # create begin and end years (overall ohc and specific placement)
+  ohc_data_no_dups[, ohc_begin_syear := ifelse(month(removal_date) > 5, year(ymd(removal_date) + years(1)), year(removal_date))]
+  ohc_data_no_dups[, ohc_end_syear := ifelse(month(discharge_date) > 5, year(ymd(discharge_date) + years(1)), year(discharge_date))]
+  ohc_data_no_dups[, plcmt_begin_syear := ifelse(month(plcmt_begin_date) > 5, year(ymd(plcmt_begin_date) + years(1)), year(plcmt_begin_date))]
+  ohc_data_no_dups[, plcmt_end_syear := ifelse(month(plcmt_end_date) > 5, year(ymd(plcmt_end_date) + years(1)), year(plcmt_end_date))]
+  
+#################################################
+# calc number of ohc / plcmt days #
+#################################################
+  
+  # remove placements from data that begin after 11-12 academic year (2012-05-31) #brule
+  sub_ohc_data <- subset(ohc_data_no_dups, ymd(plcmt_begin_date) <= ymd("2012-05-31"))
+  
+  # cap placements / ohc that ends after 11-12 academic year or are NA (ongoing placements at time of data pull) at 2012-05-31 #brule
+  sub_ohc_data[, adj_plcmt_end_date := plcmt_end_date]
+  sub_ohc_data[ymd(adj_plcmt_end_date) > ymd("2012-05-31") | is.na(adj_plcmt_end_date), adj_plcmt_end_date := "2012-05-31"]
+  sub_ohc_data[, adj_discharge_date := discharge_date]
+  sub_ohc_data[ymd(adj_discharge_date) > ymd("2012-05-31") | is.na(adj_discharge_date), adj_discharge_date := "2012-05-31"]
+  
+  # calc number of ohc days and plcmt days 
+  sub_ohc_data[, tot_ohc_days := (ymd(adj_discharge_date) - ymd(removal_date)) / 86400]
+  sub_ohc_data[, plcmt_days := (ymd(adj_plcmt_end_date) - ymd(plcmt_begin_date)) / 86400]
 
+  # remove placement = 0 days
+
+  
+
+  
+  
 #######################################
 # aggregate total placements by child #
 #######################################
@@ -136,11 +153,7 @@
 # create aggregated set of latest placement per child #
 #######################################################
 
-  # remove placements occuring after 2012
-  sub_ohc_data <- subset(ohc_data_no_dups, !(plcmt_begin_year > 2012))
-  
-  # set placements that end after 2012 to 12-31-2012 #brule
-  sub_ohc_data[plcmt_end_date > "2012-12-31" | is.na(plcmt_end_date), plcmt_end_date := as.Date("2012-12-31")]
+
   
   # update placement end year and plcmt days vars #brule
   sub_ohc_data[, plcmt_end_year := as.numeric(format(plcmt_end_date, "%Y"))]
