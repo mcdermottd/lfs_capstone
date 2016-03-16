@@ -23,7 +23,7 @@
 #############
 
   # output toggle
-  opt_exp <- 0
+  p_opt_exp <- 0
 
 #############
 # load data #
@@ -53,33 +53,29 @@
   
   # remove duplicates based on child_id and school_year #brule
   format_stacked_dpi <- ea_no_dups(format_stacked_dpi, c("lds_student_key", "school_year"))
-
-###################
-# format dpi data #
-###################
-    
-  # create lst_plcmt_yr var to merge
-  format_stacked_dpi[, lst_plcmt_yr := as.numeric(paste0("20", ea_scan(school_year, 2, "-")))]
   
-  # subset to dpi data to years in ohc file
-  sub_dpi_for_merge <- subset(format_stacked_dpi, lst_plcmt_yr >= 2007 & lst_plcmt_yr <= 2012)
+  # rename child id var
+  setnames(format_stacked_dpi, "child_id", "merge_id")
 
-##################################
-# subset and merge with ohc data #
-##################################
+#######################
+# merge with ohc data #
+#######################
   
   # copy raw ohc file
   ohc_data_for_merge <- copy(in_stacked_ohc)
   
   # merge data sets
-  merged_set <- ea_merge(ohc_data_for_merge, sub_dpi_for_merge, c("child_id", "lst_plcmt_yr"), "x")
+  merged_output <- ea_merge(ohc_data_for_merge, format_stacked_dpi, "merge_id", opt_out_mismatches = 1)
+  
+  # copy merged set
+  merged_data <- copy(merged_output$out_merged_data)
   
 ##########
 # export #
 ##########
 
   # export
-  if (opt_exp == 1) { 
+  if (p_opt_exp == 1) { 
     
     ea_write( , ".csv")
     
