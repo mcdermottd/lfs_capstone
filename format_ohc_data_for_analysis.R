@@ -121,8 +121,8 @@
 #####################################################
   
   # calc number of ohc days and plcmt days 
-  sub_ohc_data[, tot_ohc_days := (ymd(adj_discharge_date) - ymd(removal_date)) / 86400]
-  sub_ohc_data[, plcmt_days := (ymd(adj_plcmt_end_date) - ymd(plcmt_begin_date)) / 86400]
+  sub_ohc_data[, ohc_days_tot := as.numeric((ymd(adj_discharge_date) - ymd(removal_date)) / 86400)]
+  sub_ohc_data[, plcmt_days := as.numeric((ymd(adj_plcmt_end_date) - ymd(plcmt_begin_date)) / 86400)]
   
   # remove placement = 0 days #brule #NEED TO FIGURE THIS OUT WITH DCF
   sub_ohc_data <- subset(sub_ohc_data, plcmt_days > 0)
@@ -132,13 +132,13 @@
 #######################################
   
   # aggregate placements by child
-  agg_plcmt <- sub_ohc_data[, list(tot_num_plcmt = .N,
-                                   tot_plcmt_days = sum(plcmt_days)),
+  agg_plcmt <- sub_ohc_data[, list(num_plcmt_tot = .N,
+                                   plcmt_days_tot = sum(plcmt_days)),
                             by = "child_id"]
   
   # take average number of placement and total placement days
-  a_avg_plcmt <- agg_plcmt[, list(avg_plcmt = mean(tot_num_plcmt),
-                                    avg_plcmt_days = mean(tot_plcmt_days, na.rm = TRUE))]
+  a_avg_plcmt <- agg_plcmt[, list(avg_num_plcmt = mean(num_plcmt_tot),
+                                    avg_plcmt_days = mean(plcmt_days_tot, na.rm = TRUE))]
 
 #########################################################
 # subset to placements in latest academic year by child #
@@ -175,13 +175,16 @@
   latest_plcmt_set[plcmt_begin_syear != plcmt_end_syear, adj_plcmt_begin_date := paste0((plcmt_end_syear - 1), "-06-01")]
   
   # calc number of plcmt days (in academic year)
-  latest_plcmt_set[, plcmt_days_acad := (ymd(adj_plcmt_end_date) - ymd(adj_plcmt_begin_date)) / 86400]
+  latest_plcmt_set[, plcmt_days_acad := as.numeric((ymd(adj_plcmt_end_date) - ymd(adj_plcmt_begin_date)) / 86400)]
   
   # aggregate placements by child by year
-  agg_plcmt_by_year <- latest_plcmt_set[, list(acad_num_plcmt = .N,
-                                               acad_plcmt_days = sum(plcmt_days_acad)),
-                                        by = c("child_id", "plcmt_end_syear")]
+  agg_latest_plcmt_year <- latest_plcmt_set[, list(num_plcmt_acad_yr = .N,
+                                                   plcmt_days_acad_year = sum(plcmt_days_acad)),
+                                            by = c("child_id", "plcmt_end_syear")]
   
+  # rename year var
+  setnames(agg_latest_plcmt_year, "plcmt_end_syear", "latest_acad_yr")
+      
 ####################################################
 # create wide set of all placements in latest year #
 ####################################################
@@ -193,64 +196,52 @@
   latest_plcmt_set[, num_plcmt := seq_len(.N), by = child_id]
   
   # cast placement records wide
-  latest_plcmt_wide <- dcast.data.table(latest_plcmt_set, child_id ~ num_plcmt, value.var = c("plcmt_begin_date", "plcmt_end_date", "plcmt_days"))
+  latest_plcmt_wide <- dcast.data.table(latest_plcmt_set, child_id ~ num_plcmt, 
+                                        value.var = c("plcmt_begin_date", "adj_plcmt_begin_date", "plcmt_end_date", "adj_plcmt_end_date", 
+                                                      "plcmt_days", "plcmt_days_acad"))
+  
+##################################################
+# create unique child set, remove plcmt day info #
+##################################################
+  
+  # sort based on child id, year, plcmt days
+  setorder(latest_plcmt_set, child_id, -plcmt_days_acad)
+  
+  # create set with one row per child, keeping record with most placement days #brule
+  unique_child_set <- ea_no_dups(latest_plcmt_set, "child_id")
+  
+  # merge on agg plcmt info
+  unique_child_set <- ea_merge(unique_child_set, agg_plcmt, "child_id", opt_print = 0)
+  
+  # remove specific placement start / end info
+  unique_child_set <- subset(unique_child_set, select = -c(plcmt_begin_date, plcmt_end_date, adj_plcmt_begin_date, adj_plcmt_end_date, plcmt_days,
+                                                           plcmt_days_acad, plcmt_begin_syear, plcmt_end_syear, num_plcmt, days_plcmt_in_rpt_period))
+
+  # rename id var names for merge
+  setnames(p_id_xwalk, c("new_id", "CHILD_ID"), c("child_id", "merge_id"))
+
+  # remove duplicates on dcf id #brule
+  p_id_xwalk <- ea_no_dups(p_id_xwalk, "child_id")
+  
+  # merge on xwalk ids
+  unique_child_set <- ea_merge(p_id_xwalk, unique_child_set, "child_id", "y", opt_print = 0)
   
 ####################################################
 # merge latest placement year info with child info #
-####################################################
+####################################################  
   
-  # sort based on child id, year, plcmt days
-  setorder(sub_ohc_data, child_id, -plcmt_end_year, -plcmt_days)
-  
-  # create set with one row per child, keeping record with most placement days in latest placment year #brule
-  unique_child_set <- ea_no_dups(sub_ohc_data, "child_id")
-  
-  # merge on agg plcmt info
-  unique_child_set <- ea_merge(unique_child_set, agg_plcmt, "child_id", "x", opt_print = 0)
-  
-  # keep only child specific vars
-  unique_child_set <- subset(unique_child_set, select = c(child_id, child_dob, child_gender, child_race, child_ethnicity, child_hispanic, 
-                                                          child_disability, disabilities, icwa_child, fl_mntal_retardatn, fl_phys_disabled, 
-                                                          fl_vis_hearing_impr, fl_emotion_dstrbd, fl_othr_spc_care, fl_lrn_disability, 
-                                                          child_level_of_need, case_id, case_type, dcf_plcmt_type, region, site_region, 
-                                                          placing_county, plcmnt_care_rspnsblty_county, provider_county, ohc_begin_year, ohc_end_year,
-                                                          removal_date, discharge_date, tpr_finalization_date, adoption_final_date, end_reason, 
-                                                          discharge_reason, tot_ohc_days, tot_num_plcmt, tot_plcmt_days))
-  
-  # rename plcmt end year var for merge
-  setnames(sub_plcmt_by_year, c("plcmt_end_year", "yr_num_plcmt", "yr_plcmt_days"), c("lst_plcmt_yr", "lst_yr_num_plcmt", "lst_yr_plcmt_days"))
-      
   # merge aggregate placement info with child info
-  full_set_agg_plcmt <- ea_merge(unique_child_set, sub_plcmt_by_year, "child_id", "y", opt_print = 0)
+  full_set_agg_plcmt <- ea_merge(unique_child_set, agg_latest_plcmt_year, "child_id", "y", opt_print = 0)
+  
+  # reorder vars
+  ea_colorder(full_set_agg_plcmt, c("child_id", "merge_id", "latest_acad_yr", "child_dob", "child_gender", "child_race", "child_ethnicity", 
+                                    "child_hispanic","child_disability", "disabilities", "icwa_child", "ohc_days_tot", "num_plcmt_tot", 
+                                    "plcmt_days_tot", "num_plcmt_acad_yr", "plcmt_days_acad_year", "removal_date", "discharge", "discharge_date",
+                                    "adj_discharge_date", "end_reason", "discharge_reason", "tpr_finalization_date", "adoption_final_date", "region",
+                                    "dcf_plcmt_type"))
 
   # merge on wide plcmt info
-  full_set_all_plcmt <- ea_merge(full_set_agg_plcmt, lst_plcmt_wide, "child_id", opt_print = 0)
-
-#######################
-# add on merge id var #
-#######################
-  
-  # rename id var names for merge
-  setnames(p_id_xwalk, c("new_id", "CHILD_ID"), c("dcf_id", "child_id"))
-
-  # remove duplicates on dcf id #brule
-  p_id_xwalk <- ea_no_dups(p_id_xwalk, "dcf_id")
-  
-  # rename child id for merge
-  setnames(ohc_data_full, "child_id", "dcf_id")
-  setnames(ohc_data_no_dups, "child_id", "dcf_id")
-  setnames(full_set_agg_plcmt, "child_id", "dcf_id")
-  setnames(full_set_all_plcmt, "child_id", "dcf_id")
-  setnames(agg_plcmt, "child_id", "dcf_id")
-  setnames(agg_plcmt_by_year, "child_id", "dcf_id")
-  
-  # merge on xwalk ids
-  ohc_data_full <- ea_merge(p_id_xwalk, ohc_data_full, "dcf_id", "y", opt_print = 0)
-  ohc_data_no_dups <- ea_merge(p_id_xwalk, ohc_data_no_dups, "dcf_id", "y", opt_print = 0)
-  full_set_agg_plcmt <- ea_merge(p_id_xwalk, full_set_agg_plcmt, "dcf_id", "y", opt_print = 0)
-  full_set_all_plcmt <- ea_merge(p_id_xwalk, full_set_all_plcmt, "dcf_id", "y", opt_print = 0)
-  agg_plcmt <- ea_merge(p_id_xwalk, agg_plcmt, "dcf_id", "y", opt_print = 0)
-  agg_plcmt_by_year <- ea_merge(p_id_xwalk, agg_plcmt_by_year, "dcf_id", "y", opt_print = 0)
+  full_set_all_plcmt <- ea_merge(full_set_agg_plcmt, latest_plcmt_wide, "child_id", opt_print = 0)
 
 ##########
 # export #
@@ -265,7 +256,9 @@
     ea_write(full_set_all_plcmt, "X:/LFS-Education Outcomes/data/lfs_data/lst_set_all_plcmt.csv")
     
     ea_write(agg_plcmt, "X:/LFS-Education Outcomes/data/lfs_data/agg_plcmt_by_child.csv")
-    ea_write(agg_plcmt, "X:/LFS-Education Outcomes/data/lfs_data/agg_plcmt_by_child_yr.csv")
+    ea_write(agg_latest_plcmt_year, "X:/LFS-Education Outcomes/data/lfs_data/agg_plcmt_by_child_latest_acad_yr.csv")
+    
+    ea_write(a_avg_plcmt, "X:/LFS-Education Outcomes/qc/avg_plcmts")
 
   }
 
