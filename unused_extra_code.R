@@ -20,22 +20,6 @@
 
   # remove additional duplicates ignoring discharge vars #brule
   sub_ohc_data <- ea_no_dups(sub_ohc_data, vars_dup)
-      
-
-  
-##########################
-# subset to current year #
-##########################
-  
-  # copy formatted set
-  sub_ohc_data <- copy(format_ohc_data)
-  
-  # create flag for in placement year #brule
-  sub_ohc_data[, flag_in_year := 0]
-  sub_ohc_data[plcmt_begin_year <= p_data_year & plcmt_end_year >= p_data_year, flag_in_year := 1]
-  
-  # subset to placements from current year #brule
-  sub_ohc_data <- subset(sub_ohc_data, flag_in_year == 1)
    
   
   
