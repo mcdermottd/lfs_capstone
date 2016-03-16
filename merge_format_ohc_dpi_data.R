@@ -1,8 +1,8 @@
 ######################################################################
 # notes:
-# - purpose:
-# - inputs:
-# - outputs:
+# - purpose: merge ohc with dpi set
+# - inputs: ohc data aggregated to latest acad year (one row per student), full stacked dpi data 
+# - outputs: merged set, latest ohc placement data merged with dpi outcomes over multiple years (+ control data)
 # - keywords: #brule
 # - general:
 ######################################################################
@@ -64,11 +64,27 @@
   # copy raw ohc file
   ohc_data_for_merge <- copy(in_stacked_ohc)
   
-  # merge data sets
-  merged_output <- ea_merge(ohc_data_for_merge, format_stacked_dpi, "merge_id", opt_out_mismatches = 1)
+  # merge on academic outcomes to ohc data
+  merged_output <- ea_merge(ohc_data_for_merge, format_stacked_dpi, "merge_id", "both", opt_out_mismatches = 1)
   
   # copy merged set
-  merged_data <- copy(merged_output$out_merged_data)
+  ohc_dpi_data <- copy(merged_output$out_merged_data)
+  
+  # remove ohc demo vars, coming from dpi data #brule
+  ohc_dpi_data <- subset(ohc_dpi_data, select = -c(child_gender, child_race, child_ethnicity, child_hispanic, child_disability, disabilities, 
+                                                  icwa_child, fl_mntal_retardatn, fl_phys_disabled, fl_vis_hearing_impr, fl_emotion_dstrbd, 
+                                                  fl_othr_spc_care, fl_lrn_disability, child_level_of_need))
+  
+  # create controls set
+  controls_set <- subset(format_stacked_dpi, is.na(merge_id))
+  
+  # stack merged set with controls
+  full_set <- rbind(ohc_dpi_data, controls_set, fill = TRUE)
+  
+  # create OHC flag
+  full_set[, flag_ohc := 0]
+  full_set[!is.na(merge_id), flag_ohc := 1]
+
   
 ##########
 # export #
@@ -77,7 +93,7 @@
   # export
   if (p_opt_exp == 1) { 
     
-    ea_write( , ".csv")
+    ea_write(full_set, "X:/LFS-Education Outcomes/data/lfs_data/combined_dpi_dcf_set.csv")
     
   }
 
