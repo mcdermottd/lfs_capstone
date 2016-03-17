@@ -59,6 +59,9 @@
   # subset to data for melt
   sub_ohc_data_unique <- subset(sub_ohc_data_unique, select = c(child_id, removal_date, ohc_days_tot, num_plcmt_tot, plcmt_days_tot))
 
+  # create avg days per placement var
+  sub_ohc_data_unique[, avg_days_per_plcmt := plcmt_days_tot / num_plcmt_tot]
+  
   # melt ohc data long to summarize
   long_data_overall <- melt.data.table(sub_ohc_data_unique, id.vars = c("child_id", "removal_date"))
   
@@ -79,7 +82,7 @@
                                                            var = round(var(value), 2),
                                                            sd = round(sd(value), 2)), 
                                       by = c("variable")]
-
+  
   # calc ohc stats overall, by removal year
   a_summ_overall_by_yr <- long_data_overall[!is.na(value), list(n_obs = length(value),
                                                                 min = min(value),
@@ -97,8 +100,12 @@
 #####################################
   
   # subset to data for melt
-  sub_ohc_acad_yr <- subset(sub_ohc_data, select = c(child_id, acad_year, removal_date, ohc_days_tot, num_plcmt_tot, plcmt_days_tot, 
-                                                     num_plcmt_acad_yr, plcmt_days_acad_year))
+  sub_ohc_acad_yr <- subset(sub_ohc_data, acad_year > 2007 & acad_year < 2013, select = c(child_id, acad_year, removal_date, ohc_days_tot, 
+                                                                                          num_plcmt_tot, plcmt_days_tot, num_plcmt_acad_yr, 
+                                                                                          plcmt_days_acad_year))
+  
+  # create avg days per placement var
+  sub_ohc_acad_yr[, avg_days_per_plcmt := plcmt_days_acad_year / num_plcmt_acad_yr]
   
   # change removal date to removal year
   sub_ohc_acad_yr[, removal_date := as.numeric(year(removal_date))]
@@ -107,7 +114,8 @@
   long_data_acad <- melt.data.table(sub_ohc_acad_yr, id.vars = c("child_id", "acad_year"))
   
   # subset to only acad year vars
-  sub_long_data_acad <- subset(long_data_acad, variable == "num_plcmt_acad_yr" | variable == "plcmt_days_acad_year")
+  sub_long_data_acad <- subset(long_data_acad, 
+                               variable == "num_plcmt_acad_yr" | variable == "plcmt_days_acad_year" | variable == "avg_days_per_plcmt")
   
   # calc acad yr stats overall
   a_summ_acad <- sub_long_data_acad[!is.na(value), list(n_obs = length(value),
@@ -135,8 +143,7 @@
                                                            var = round(var(value), 2),
                                                            sd = round(sd(value), 2)), 
                                       by = c("variable", "acad_year")]
-  
-  
+
 #####################
 # plot summary info #
 #####################
@@ -150,76 +157,89 @@
                             text = element_text(size = 20),
                             plot.title = element_text(vjust = 0, colour = "black", face = "bold", size = 25))
   
-  # histogram - total ohc days
-  plot_hist_ohc_days <- ggplot(data = subset(ohc_dpi_data_no_dups, ohc_days_tot <= 1825), aes(x = ohc_days_tot)) + 
-                               geom_histogram(binwidth = 20, colour = "black", fill = "darkred") +
-                               labs(x = "Total Number of Days in OHC", y = "Number of Students", 
-                                    title = "Total Number of Days in Out of Home Care by Student") + 
+  # histogram - total ohc days (30 day bins, <= 1825 days)
+  plot_hist_ohc_days <- ggplot(data = subset(sub_ohc_data_unique, ohc_days_tot <= 1825), aes(x = ohc_days_tot)) + 
+                               geom_histogram(binwidth = 30, colour = "black", fill = "dodgerblue4") +
+                               labs(x = "Total Number of Days in OHC", y = "Number of Children", 
+                                    title = "Total Number of Days in Out of Home Care") + 
                                plot_attributes
   
-  # histogram - total ohc days, by academic year
-  plot_hist_ohc_days_byr <- ggplot(data = subset(ohc_dpi_data_no_dups, ohc_days_tot <= 1825), aes(x = ohc_days_tot)) + 
-                               geom_histogram(binwidth = 20, colour = "black", fill = "darkred") +
-                               labs(x = "Total Number of Days in OHC", y = "Number of Students", 
-                                    title = "Total Number of Days in Out of Home Care by Student, by Latest Academic Year") + 
-                               plot_attributes +
-                               facet_wrap(~latest_acad_yr, ncol = 2)
+  # histogram - total ohc placements (1 day bins, <= 20 placements)
+  plot_hist_ohc_plcmts <- ggplot(data = subset(sub_ohc_data_unique, num_plcmt_tot <= 20), aes(x = num_plcmt_tot)) + 
+                                 geom_histogram(binwidth = 1, colour = "black", fill = "dodgerblue4") +
+                                 labs(x = "Total Number of Placements", y = "Number of Children", 
+                                      title = "Total Placements in Out of Home Care") + 
+                                 plot_attributes
+  
+  # histogram - avg plcmt length (15 day bins, <= 750 days)
+  plot_hist_avg_days_plcmt <- ggplot(data = subset(sub_ohc_data_unique, avg_days_per_plcmt <= 750), aes(x = avg_days_per_plcmt)) + 
+                                     geom_histogram(binwidth = 15, colour = "black", fill = "dodgerblue4") +
+                                     labs(x = "Average Days Per Placement", y = "Number of Children", 
+                                          title = "Average Days Per Out of Home Care Placement") + 
+                                     plot_attributes
                                
-  # histogram - total plcmt days in acad year
-  plot_hist_plcmt_days_acad <- ggplot(data = ohc_dpi_data_no_dups, aes(x = plcmt_days_acad_year)) + 
-                               geom_histogram(binwidth = 20, colour = "black", fill = "darkred") +
-                               labs(x = "Total Number of Out of Home Placement Days in Academic Year", y = "Number of Students", 
-                                    title = "Total Number of Out of Home Placement Days in Academic Year by Student") + 
+  # histogram - total plcmt days in acad year (20 day bins)
+  plot_hist_plcmt_days_acad <- ggplot(data = subset(sub_ohc_acad_yr, acad_year > 2007 & acad_year < 2013), aes(x = plcmt_days_acad_year)) + 
+                               geom_histogram(binwidth = 20, colour = "black", fill = "dodgerblue4") +
+                               labs(x = "Number of Out of Home Placement Days Per Year", y = "Number of Children", 
+                                    title = "Number of Out of Home Care Placements Per Year") + 
                                plot_attributes
   
-  # histogram - total plcmt days in acad year, by academic year
-  plot_hist_plcmt_days_acad_byr <- ggplot(data = ohc_dpi_data_no_dups, aes(x = plcmt_days_acad_year)) + 
-                               geom_histogram(binwidth = 20, colour = "black", fill = "darkred") +
-                               labs(x = "Total Number of Out of Home Placement Days in Academic Year", y = "Number of Students", 
-                                    title = "Total Number of Out of Home Placement Days in Academic Year by Student, by Latest Academic Year") + 
+  # histogram - total plcmt days in acad year, by academic year (20 day bins)
+  plot_hist_plcmt_days_acad_byr <- ggplot(data = subset(sub_ohc_acad_yr, acad_year > 2007 & acad_year < 2013), aes(x = plcmt_days_acad_year)) + 
+                               geom_histogram(binwidth = 20, colour = "black", fill = "dodgerblue4") +
+                               labs(x = "Number of Out of Home Placement Days Per Year", y = "Number of Children", 
+                                    title = "Number of Out of Home Care Placements Per Year \n - by Academic Year") + 
                                plot_attributes +
-                               facet_wrap(~latest_acad_yr, ncol = 2)
+                               facet_wrap(~acad_year, ncol = 2)
 
+  # histogram - avg plcmt length in acad year (15 day bins, <= 750 days)
+  plot_hist_avg_days_acad <- ggplot(data = subset(sub_ohc_acad_yr, acad_year > 2007 & acad_year < 2013), aes(x = avg_days_per_plcmt)) + 
+                                     geom_histogram(binwidth = 10, colour = "black", fill = "dodgerblue4") +
+                                     labs(x = "Average Days Per Placement", y = "Number of Children", 
+                                          title = "Average Days Per Out of Home Care Placement Per Year") + 
+                                     plot_attributes
   
+  # histogram - avg plcmt length in acad year, by academic year (15 day bins, <= 750 days)
+  plot_hist_avg_days_acad_byr <- ggplot(data = subset(sub_ohc_acad_yr, acad_year > 2007 & acad_year < 2013), aes(x = avg_days_per_plcmt)) + 
+                                         geom_histogram(binwidth = 10, colour = "black", fill = "dodgerblue4") +
+                                         labs(x = "Average Days Per Placement", y = "Number of Children", 
+                                              title = "Average Days Per Out of Home Care Placement Per Year \n - by Academic Year") + 
+                                         plot_attributes +
+                                         facet_wrap(~acad_year, ncol = 2)
   
-  
-  plot_freq_state20_comp_dist <- ggplot(data = wide_analysis_set[!is.na(state20_comp)], aes(x = state20_comp)) + 
-                                        geom_histogram(binwidth = 2, colour = "black", fill = "#2D947C") +
-                                        labs(x = "Growth Rating (0-20)", y = "Number of Teachers", 
-                                             title = paste0("Growth on Comparable Measures by District: ", sy_label)) + 
-                                        plot_attributes +
-                                        facet_wrap(~district_code, ncol = 4)
 #####################
 # format and export #
 #####################
   
-  # subset acad yr table to export
-  out_summ_acad_by_yr <- subset(a_summ_acad_by_yr, as.numeric(acad_year) > 2007 & as.numeric(acad_year) < 2013)
-  
   # sort output set
-  setorder(out_summ_acad_by_yr, acad_year, variable)
-  
+  setorder(a_summ_acad_by_yr, acad_year, variable)
   
   # set height and width of plots
   p_height <- 28
   p_width <- 28
 
-  
   # export
   if (p_opt_exp == 1) { 
     
     ea_write(a_summ_overall, "X:/LFS-Education Outcomes/qc/summary_stats_ohc_overall.csv")
+    ea_write(a_summ_overall, "X:/LFS-Education Outcomes/qc/summary_stats_ohc_overall_by_yr.csv")
     ea_write(a_summ_acad, "X:/LFS-Education Outcomes/qc/summary_stats_acad.csv")
-    ea_write(out_summ_acad_by_yr, "X:/LFS-Education Outcomes/qc/summary_stats_acad_by_yr.csv")
+    ea_write(a_summ_acad_by_yr, "X:/LFS-Education Outcomes/qc/summary_stats_acad_by_yr.csv")
 
     ggsave("X:/LFS-Education Outcomes/qc/hist_ohc_days_overall.png", plot = plot_hist_ohc_days, width = p_width, height = p_height, units = "cm")
-    ggsave("X:/LFS-Education Outcomes/qc/hist_ohc_days_by_acad_yr.png", plot = plot_hist_ohc_days_byr, 
-           width = p_width, height = p_height, units = "cm")
-    ggsave("X:/LFS-Education Outcomes/qc/hist_plcmt_days_acad_yr_overall.png", plot = plot_hist_plcmt_days_acad, 
-           width = p_width, height = p_height, units = "cm")
-    ggsave("X:/LFS-Education Outcomes/qc/hist_plcmt_days_acad_yr_by_acad_yr.png", plot = plot_hist_plcmt_days_acad_byr, 
+    ggsave("X:/LFS-Education Outcomes/qc/hist_plcmts_overall.png", plot = plot_hist_ohc_plcmts, width = p_width, height = p_height, units = "cm")
+    ggsave("X:/LFS-Education Outcomes/qc/hist_avg_plcmt_days_overall.png", plot = plot_hist_avg_days_plcmt, 
            width = p_width, height = p_height, units = "cm")
     
+    ggsave("X:/LFS-Education Outcomes/qc/hist_plcmt_days_acad.png", plot = plot_hist_plcmt_days_acad, 
+           width = p_width, height = p_height, units = "cm")
+    ggsave("X:/LFS-Education Outcomes/qc/hist_plcmt_days_acad_by_yr.png", plot = plot_hist_plcmt_days_acad_byr, 
+           width = p_width, height = p_height, units = "cm")
+    ggsave("X:/LFS-Education Outcomes/qc/hist_avg_plcmt_days_acad.png", plot = plot_hist_avg_days_acad, 
+           width = p_width, height = p_height, units = "cm")
+    ggsave("X:/LFS-Education Outcomes/qc/hist_avg_plcmt_days_acad_by_yr.png", plot = plot_hist_avg_days_acad_byr, 
+           width = p_width, height = p_height, units = "cm")
 
   }
   
