@@ -108,8 +108,8 @@
 ######################################################
 
   # calc number of ohc days and plcmt days
-  ohc_data_no_dups[, ohc_days_tot := as.numeric((ymd(discharge_date) - ymd(removal_date)) / 86400)]
-  ohc_data_no_dups[, plcmt_days := as.numeric((ymd(plcmt_end_date) - ymd(plcmt_begin_date)) / 86400)]
+  ohc_data_no_dups[, ohc_days_tot := as.numeric(as.duration(ymd(discharge_date) - ymd(removal_date))) / 86400]
+  ohc_data_no_dups[, plcmt_days := as.numeric(as.duration(ymd(plcmt_end_date) - ymd(plcmt_begin_date))) / 86400]
 
   # remove placement = 0 days #brule #NEED TO FIGURE THIS OUT WITH DCF
   ohc_data_no_dups <- subset(ohc_data_no_dups, plcmt_days > 0)
@@ -156,7 +156,7 @@
   ##############
   
   for (m_year in p_plcmt_years) {
-  
+
     #################################################################
     # subset to placements in academic year and calc placement days #
     #################################################################
@@ -173,8 +173,8 @@
       acad_yr_set[plcmt_end_syear != m_year, adj_plcmt_end_date := paste0(m_year, "-05-31")]
   
       # calc number of plcmt days (in academic year)
-      acad_yr_set[, plcmt_days_acad := as.numeric((ymd(adj_plcmt_end_date) - ymd(adj_plcmt_begin_date)) / 86400)]
-  
+      acad_yr_set[, plcmt_days_acad := as.numeric(as.duration(ymd(adj_plcmt_end_date) - ymd(adj_plcmt_begin_date))) / 86400]
+
       # aggregate placements by child by year
       agg_acad_plcmt <- acad_yr_set[, list(num_plcmt_acad_yr = .N,
                                            plcmt_days_acad_year = sum(plcmt_days_acad)),
