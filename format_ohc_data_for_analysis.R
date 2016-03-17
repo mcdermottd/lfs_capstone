@@ -103,102 +103,133 @@
   # remove duplicates based on id, and placement start and end date #brule
   ohc_data_no_dups <- ea_no_dups(ohc_data_full, c("child_id", "plcmt_begin_date", "plcmt_end_date"))
   
-#######################################################################
-# remove data after 11-12 academic year, adjust end dates accordingly #
-#######################################################################
-  
-  # remove placements from data that begin after 11-12 academic year (2012-05-31) #brule
-  sub_ohc_data <- subset(ohc_data_no_dups, ymd(plcmt_begin_date) <= ymd("2012-05-31"))
-  
-  # cap placements / ohc that ends after 11-12 academic year or are NA (ongoing placements at time of data pull) at 2012-05-31 #brule
-  sub_ohc_data[, adj_plcmt_end_date := plcmt_end_date]
-  sub_ohc_data[ymd(adj_plcmt_end_date) > ymd("2012-05-31") | is.na(adj_plcmt_end_date), adj_plcmt_end_date := "2012-05-31"]
-  sub_ohc_data[, adj_discharge_date := discharge_date]
-  sub_ohc_data[ymd(adj_discharge_date) > ymd("2012-05-31") | is.na(adj_discharge_date), adj_discharge_date := "2012-05-31"]
-  
-#####################################################
-# calc total number of ohc days / days per placement#
-#####################################################
-  
-  # calc number of ohc days and plcmt days 
-  sub_ohc_data[, ohc_days_tot := as.numeric((ymd(adj_discharge_date) - ymd(removal_date)) / 86400)]
-  sub_ohc_data[, plcmt_days := as.numeric((ymd(adj_plcmt_end_date) - ymd(plcmt_begin_date)) / 86400)]
-  
+######################################################
+# calc total number of ohc days / days per placement #
+######################################################
+
+  # calc number of ohc days and plcmt days
+  ohc_data_no_dups[, ohc_days_tot := as.numeric((ymd(discharge_date) - ymd(removal_date)) / 86400)]
+  ohc_data_no_dups[, plcmt_days := as.numeric((ymd(plcmt_end_date) - ymd(plcmt_begin_date)) / 86400)]
+
   # remove placement = 0 days #brule #NEED TO FIGURE THIS OUT WITH DCF
-  sub_ohc_data <- subset(sub_ohc_data, plcmt_days > 0)
+  ohc_data_no_dups <- subset(ohc_data_no_dups, plcmt_days > 0)
 
 #######################################
 # aggregate total placements by child #
 #######################################
-  
+
   # aggregate placements by child
-  agg_plcmt <- sub_ohc_data[, list(num_plcmt_tot = .N,
-                                   plcmt_days_tot = sum(plcmt_days)),
-                            by = "child_id"]
-  
+  agg_plcmt <- ohc_data_no_dups[, list(num_plcmt_tot = .N,
+                                       plcmt_days_tot = sum(plcmt_days)),
+                                by = "child_id"]
+
   # take average number of placement and total placement days
   a_avg_plcmt <- agg_plcmt[, list(avg_num_plcmt = mean(num_plcmt_tot),
-                                    avg_plcmt_days = mean(plcmt_days_tot, na.rm = TRUE))]
+                                  avg_plcmt_days = mean(plcmt_days_tot, na.rm = TRUE))]
 
-#########################################################
-# subset to placements in latest academic year by child #
-#########################################################
-  
-  # set placements ending on 6/1 to 5/31, so included in prior academic year #brule
-  sub_ohc_data[grepl("06-01", adj_plcmt_end_date), adj_plcmt_end_date := paste0(year(ymd(adj_plcmt_end_date)), "-05-31")]
+#############################
+# create academic year vars #
+#############################
 
   # create school year plcmt vars with adjusted data #brule
-  sub_ohc_data[, plcmt_begin_syear := ifelse(month(plcmt_begin_date) > 5, year(ymd(plcmt_begin_date) + years(1)), year(plcmt_begin_date))]
-  sub_ohc_data[, plcmt_end_syear := ifelse(month(adj_plcmt_end_date) > 5, year(ymd(adj_plcmt_end_date) + years(1)), year(adj_plcmt_end_date))]
+  ohc_data_no_dups[, plcmt_begin_syear := ifelse(month(plcmt_begin_date) > 5, year(ymd(plcmt_begin_date) + years(1)), year(plcmt_begin_date))]
+  ohc_data_no_dups[, plcmt_end_syear := ifelse(month(plcmt_end_date) > 5, year(ymd(plcmt_end_date) + years(1)), year(plcmt_end_date))]
   
-  # non-duplicated years per child
-  child_years <- ea_no_dups(sub_ohc_data, c("child_id", "plcmt_end_syear"), opt_print = 0)
+#########################################
+# loop over placement years in data set #
+#########################################  
   
-  # subset to child id and plcmt end year vars
-  child_years <- subset(child_years, select = c(child_id, plcmt_end_syear))
+  # create set of placement start and end dates
+  plcmt_dates <- subset(ohc_data_no_dups, select = plcmt_begin_syear)
   
-  # sort based on child id and year (latest year appears first)
-  setorder(child_years, child_id, -plcmt_end_syear)
+  # subset to unique placement years
+  plcmt_dates <- ea_no_dups(plcmt_dates, "plcmt_begin_syear", opt_print = 0)
   
-  # subset to one row per child, keeping latest year #brule
-  child_years <- ea_no_dups(child_years, "child_id", opt_print = 0)
+  # create string of plcmt years
+  p_plcmt_years <- plcmt_dates$plcmt_begin_syear
   
-  # merge placement year back on main set, keeping placements that end in latest year #brule
-  latest_plcmt_set <- ea_merge(child_years, sub_ohc_data, c("child_id", "plcmt_end_syear"), "x", opt_print = 0)
+  ##############
+  # begin loop #
+  ##############
   
-###################################
-# agg placements in academic year #
-###################################  
+  # for (m_year in p_plcmt_years) {
   
-  # adj placement start date if in prior year #brule
-  latest_plcmt_set[, adj_plcmt_begin_date := plcmt_begin_date]
-  latest_plcmt_set[plcmt_begin_syear != plcmt_end_syear, adj_plcmt_begin_date := paste0((plcmt_end_syear - 1), "-06-01")]
-  
-  # calc number of plcmt days (in academic year)
-  latest_plcmt_set[, plcmt_days_acad := as.numeric((ymd(adj_plcmt_end_date) - ymd(adj_plcmt_begin_date)) / 86400)]
-  
-  # aggregate placements by child by year
-  agg_latest_plcmt_year <- latest_plcmt_set[, list(num_plcmt_acad_yr = .N,
-                                                   plcmt_days_acad_year = sum(plcmt_days_acad)),
-                                            by = c("child_id", "plcmt_end_syear")]
-  
-  # rename year var
-  setnames(agg_latest_plcmt_year, "plcmt_end_syear", "latest_acad_yr")
+    #################################################################
+    # subset to placements in academic year and calc placement days #
+    #################################################################
+m_year <- 2009
       
-####################################################
-# create wide set of all placements in latest year #
-####################################################
+      # create set of placements that spans placement year
+      acad_yr_set <- subset(ohc_data_no_dups, plcmt_begin_syear <= m_year & plcmt_end_date >= m_year)
+      
+      # adj placement start date if in prior years #brule
+      acad_yr_set[, adj_plcmt_begin_date := plcmt_begin_date]
+      acad_yr_set[plcmt_begin_syear != m_year, adj_plcmt_begin_date := paste0((m_year - 1), "-06-01")]
+      
+      # adj placement end date if in subsequent years #brule
+      acad_yr_set[, adj_plcmt_end_date := plcmt_end_date]
+      acad_yr_set[plcmt_end_syear != m_year, adj_plcmt_end_date := paste0(m_year, "-05-31")]
   
-  # sort based on child id and placement start date
-  setorder(latest_plcmt_set, child_id, plcmt_begin_date)
+      # calc number of plcmt days (in academic year)
+      acad_yr_set[, plcmt_days_acad := as.numeric((ymd(adj_plcmt_end_date) - ymd(adj_plcmt_begin_date)) / 86400)]
   
-  # number placements for casting
-  latest_plcmt_set[, num_plcmt := seq_len(.N), by = child_id]
+      # aggregate placements by child by year
+      agg_acad_plcmt <- acad_yr_set[, list(num_plcmt_acad_yr = .N,
+                                           plcmt_days_acad_year = sum(plcmt_days_acad)),
+                                    by = "child_id"]
   
-  # cast placement records wide
-  latest_plcmt_wide <- dcast.data.table(latest_plcmt_set, child_id ~ num_plcmt, 
-                                        value.var = c("plcmt_begin_date", "adj_plcmt_begin_date", "plcmt_end_date", "adj_plcmt_end_date", 
-                                                      "plcmt_days", "plcmt_days_acad"))
+    ##################################################
+    # create wide set of all placements in acad year #
+    ##################################################
+      
+      # sort based on child id and placement start and end dates
+      setorder(acad_yr_set, child_id, adj_plcmt_begin_date, adj_plcmt_end_date)
+      
+      # number placements for casting
+      acad_yr_set[, num_plcmt := seq_len(.N), by = child_id]
+      
+      # cast placement records wide
+      acad_yr_wide <- dcast.data.table(acad_yr_set, child_id ~ num_plcmt, 
+                                       value.var = c("adj_plcmt_begin_date", "adj_plcmt_end_date", "plcmt_days", "plcmt_days_acad"))
+  
+    ##################################################
+    # create unique child set, remove plcmt day info #
+    ##################################################
+      
+      # sort based on child id, year, acad plcmt days
+      setorder(acad_yr_set, child_id, -plcmt_days_acad)
+      
+      # create set with one row per child, keeping record with most placement days #brule
+      unique_child_set <- ea_no_dups(acad_yr_set, "child_id")
+      
+      # remove specific placement start / end info
+      unique_child_set <- subset(unique_child_set, select = -c(plcmt_begin_date, plcmt_end_date, adj_plcmt_begin_date, adj_plcmt_end_date, plcmt_days,
+                                                               plcmt_days_acad, plcmt_begin_syear, plcmt_end_syear, num_plcmt, days_plcmt_in_rpt_period))
+    
+      # merge on agg plcmt info
+      unique_child_set <- ea_merge(unique_child_set, agg_plcmt, "child_id", opt_print = 0)
+  
+    ####################################################
+    # merge latest placement year info with child info #
+    ####################################################  
+      
+      # merge aggregate placement info with child info
+      acad_yr_agg_plcmt <- ea_merge(unique_child_set, acad_yr_set, "child_id", "y", opt_print = 0)
+      
+      # create acad_year variable
+      acad_yr_agg_plcmt[, acad_year := m_year]
+      
+      # reorder vars
+      ea_colorder(acad_yr_agg_plcmt, c("child_id", "acad_year", "child_dob", "child_gender", "child_race", "child_ethnicity", 
+                                       "child_hispanic","child_disability", "disabilities", "icwa_child", "ohc_days_tot", "num_plcmt_tot",
+                                       "plcmt_days_tot", "num_plcmt_acad_yr", "plcmt_days_acad_year", "removal_date", "discharge", "discharge_date",
+                                       "adj_discharge_date", "end_reason", "discharge_reason", "tpr_finalization_date", "adoption_final_date", 
+                                       "region", "dcf_plcmt_type"))
+    
+      # merge on wide plcmt info
+      acad_yr_all_plcmt <- ea_merge(acad_yr_agg_plcmt, acad_yr_wide, "child_id", opt_print = 0)
+  
+  
   
 ##################################################
 # create unique child set, remove plcmt day info #
