@@ -1,6 +1,6 @@
 ######################################################################
 # notes:
-# - purpose: import, format, and stack individual year files, including consolidating ohc placements and adding dummy variables
+# - purpose: import, format, and stack sets for each academic year
 # - inputs: 5 ohc long files, 2008 - 2012
 # - outputs: consolidated set with all years stacked together
 # - keywords: #brule
@@ -27,7 +27,7 @@
   p_id_xwalk <- fread("X:/LFS-Education Outcomes/data/raw_data/xwalk_child_id.csv")
   
   # output toggle
-  p_opt_exp <- 0
+  p_opt_exp <- 1
 
 ##################################
 # create list of files to import #
@@ -131,7 +131,7 @@
 # create academic year vars #
 #############################
 
-  # create school year plcmt vars with adjusted data #brule
+  # create school year plcmt vars #brule
   ohc_data_no_dups[, plcmt_begin_syear := ifelse(month(plcmt_begin_date) > 5, year(ymd(plcmt_begin_date) + years(1)), year(plcmt_begin_date))]
   ohc_data_no_dups[, plcmt_end_syear := ifelse(month(plcmt_end_date) > 5, year(ymd(plcmt_end_date) + years(1)), year(plcmt_end_date))]
   
@@ -148,17 +148,19 @@
   # create string of plcmt years
   p_plcmt_years <- plcmt_dates$plcmt_begin_syear
   
+  # initialize file list
+  file_list <- list()
+
   ##############
   # begin loop #
   ##############
   
-  # for (m_year in p_plcmt_years) {
+  for (m_year in p_plcmt_years) {
   
     #################################################################
     # subset to placements in academic year and calc placement days #
     #################################################################
-m_year <- 2009
-      
+
       # create set of placements that spans placement year
       acad_yr_set <- subset(ohc_data_no_dups, plcmt_begin_syear <= m_year & plcmt_end_date >= m_year)
       
@@ -207,73 +209,35 @@ m_year <- 2009
                                                                plcmt_days_acad, plcmt_begin_syear, plcmt_end_syear, num_plcmt, days_plcmt_in_rpt_period))
     
       # merge on agg plcmt info
-      unique_child_set <- ea_merge(unique_child_set, agg_plcmt, "child_id", opt_print = 0)
+      unique_child_set <- ea_merge(unique_child_set, agg_plcmt, "child_id", "x", opt_print = 0)
   
     ####################################################
     # merge latest placement year info with child info #
     ####################################################  
       
       # merge aggregate placement info with child info
-      acad_yr_agg_plcmt <- ea_merge(unique_child_set, acad_yr_set, "child_id", "y", opt_print = 0)
+      acad_yr_agg_plcmt <- ea_merge(unique_child_set, agg_acad_plcmt, "child_id", opt_print = 0)
       
       # create acad_year variable
       acad_yr_agg_plcmt[, acad_year := m_year]
       
       # reorder vars
-      ea_colorder(acad_yr_agg_plcmt, c("child_id", "acad_year", "child_dob", "child_gender", "child_race", "child_ethnicity", 
-                                       "child_hispanic","child_disability", "disabilities", "icwa_child", "ohc_days_tot", "num_plcmt_tot",
-                                       "plcmt_days_tot", "num_plcmt_acad_yr", "plcmt_days_acad_year", "removal_date", "discharge", "discharge_date",
-                                       "adj_discharge_date", "end_reason", "discharge_reason", "tpr_finalization_date", "adoption_final_date", 
-                                       "region", "dcf_plcmt_type"))
+      ea_colorder(acad_yr_agg_plcmt, c("child_id", "acad_year", "child_dob", "child_gender", "child_race", "child_ethnicity", "child_hispanic",
+                                       "child_disability", "disabilities", "icwa_child", "ohc_days_tot", "num_plcmt_tot", "plcmt_days_tot", 
+                                       "num_plcmt_acad_yr", "plcmt_days_acad_year", "removal_date", "discharge", "discharge_date", "end_reason",
+                                       "discharge_reason", "tpr_finalization_date", "adoption_final_date", "region", "dcf_plcmt_type"))
     
       # merge on wide plcmt info
       acad_yr_all_plcmt <- ea_merge(acad_yr_agg_plcmt, acad_yr_wide, "child_id", opt_print = 0)
   
-  
-  
-##################################################
-# create unique child set, remove plcmt day info #
-##################################################
-  
-  # sort based on child id, year, plcmt days
-  setorder(latest_plcmt_set, child_id, -plcmt_days_acad)
-  
-  # create set with one row per child, keeping record with most placement days #brule
-  unique_child_set <- ea_no_dups(latest_plcmt_set, "child_id")
-  
-  # merge on agg plcmt info
-  unique_child_set <- ea_merge(unique_child_set, agg_plcmt, "child_id", opt_print = 0)
-  
-  # remove specific placement start / end info
-  unique_child_set <- subset(unique_child_set, select = -c(plcmt_begin_date, plcmt_end_date, adj_plcmt_begin_date, adj_plcmt_end_date, plcmt_days,
-                                                           plcmt_days_acad, plcmt_begin_syear, plcmt_end_syear, num_plcmt, days_plcmt_in_rpt_period))
+      # add file to out list
+      file_list[[m_year]] <- acad_yr_all_plcmt
 
-  # rename id var names for merge
-  setnames(p_id_xwalk, c("new_id", "CHILD_ID"), c("child_id", "merge_id"))
-
-  # remove duplicates on dcf id #brule
-  p_id_xwalk <- ea_no_dups(p_id_xwalk, "child_id")
+  }
   
-  # merge on xwalk ids
-  unique_child_set <- ea_merge(p_id_xwalk, unique_child_set, "child_id", "y", opt_print = 0)
+  # stack all files
+  stacked_acad_yr_data <- rbindlist(file_list, fill = TRUE, use.names = TRUE)
   
-####################################################
-# merge latest placement year info with child info #
-####################################################  
-  
-  # merge aggregate placement info with child info
-  full_set_agg_plcmt <- ea_merge(unique_child_set, agg_latest_plcmt_year, "child_id", "y", opt_print = 0)
-  
-  # reorder vars
-  ea_colorder(full_set_agg_plcmt, c("child_id", "merge_id", "latest_acad_yr", "child_dob", "child_gender", "child_race", "child_ethnicity", 
-                                    "child_hispanic","child_disability", "disabilities", "icwa_child", "ohc_days_tot", "num_plcmt_tot", 
-                                    "plcmt_days_tot", "num_plcmt_acad_yr", "plcmt_days_acad_year", "removal_date", "discharge", "discharge_date",
-                                    "adj_discharge_date", "end_reason", "discharge_reason", "tpr_finalization_date", "adoption_final_date", "region",
-                                    "dcf_plcmt_type"))
-
-  # merge on wide plcmt info
-  full_set_all_plcmt <- ea_merge(full_set_agg_plcmt, latest_plcmt_wide, "child_id", opt_print = 0)
-
 ##########
 # export #
 ##########
@@ -283,12 +247,9 @@ m_year <- 2009
     
     ea_write(ohc_data_full, "X:/LFS-Education Outcomes/data/lfs_data/stacked_ohc_data_full.csv")
     ea_write(ohc_data_no_dups, "X:/LFS-Education Outcomes/data/lfs_data/stacked_ohc_data_no_dups.csv")
-    ea_write(full_set_agg_plcmt, "X:/LFS-Education Outcomes/data/lfs_data/lst_set_agg_plcmt.csv")
-    ea_write(full_set_all_plcmt, "X:/LFS-Education Outcomes/data/lfs_data/lst_set_all_plcmt.csv")
-    
+    ea_write(stacked_acad_yr_data, "X:/LFS-Education Outcomes/data/lfs_data/stacked_acad_yr_set.csv")
+
     ea_write(agg_plcmt, "X:/LFS-Education Outcomes/data/lfs_data/agg_plcmt_by_child.csv")
-    ea_write(agg_latest_plcmt_year, "X:/LFS-Education Outcomes/data/lfs_data/agg_plcmt_by_child_latest_acad_yr.csv")
-    
     ea_write(a_avg_plcmt, "X:/LFS-Education Outcomes/qc/avg_plcmts")
 
   }
