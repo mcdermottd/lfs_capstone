@@ -250,7 +250,7 @@
     ea_write(stacked_acad_yr_data, "X:/LFS-Education Outcomes/data/lfs_data/stacked_acad_yr_set.csv")
 
     ea_write(agg_plcmt, "X:/LFS-Education Outcomes/data/lfs_data/agg_plcmt_by_child.csv")
-    ea_write(a_avg_plcmt, "X:/LFS-Education Outcomes/qc/avg_plcmts")
+    ea_write(a_avg_plcmt, "X:/LFS-Education Outcomes/qc/avg_plcmts.csv")
 
   }
 
