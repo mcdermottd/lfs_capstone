@@ -83,16 +83,49 @@
   # rename child id var for merge
   setnames(format_stacked_dpi, "child_id", "merge_id")
 
+######################################
+# calculate merge rates based on ids #
+######################################
+  
+  # subset to dpi data with merge id
+  dpi_merge_data <- subset(format_stacked_dpi, !is.na(merge_id))
+  
+  # remove duplicates
+  dpi_merge_ids <- ea_no_dups(dpi_merge_data, "merge_id")
+  
+  # remove duplicates in ohc data
+  ohc_merge_ids <- ea_no_dups(format_stacked_ohc, "child_id")
+  
+  # merge sets together
+  unmerged_ids <- ea_merge(ohc_merge_ids, dpi_merge_ids, c("merge_id"))
+
+  # subset to id vars
+  unmerged_ids <- subset(unmerged_ids, select = c(child_id, merge_id, lds_student_key))
+  
+  # create flags for mis-merges
+  unmerged_ids[, c("flag_ohc", "flag_dpi") := 0]
+  unmerged_ids[!is.na(lds_student_key), flag_dpi := 1]
+  unmerged_ids[!is.na(child_id), flag_ohc := 1]
+  
+  # remove merged ids
+  unmerged_ids <- subset(unmerged_ids, !(flag_dpi == 1 & flag_ohc == 1))
+  
+  # create frequency of merge flag by year
+  qc_id_merge <- ea_table(unmerged_ids, c("flag_ohc", "flag_dpi"), opt_percent = 1)
+
 #######################
 # merge with ohc data #
 #######################
   
+  # subset to dpi data with merge id
+  dpi_merge_data <- subset(format_stacked_dpi, !is.na(merge_id))
+  
   # merge ohc and dpi data, on merge id and academic year var
-  merged_set <- ea_merge(format_stacked_ohc, format_stacked_dpi, c("merge_id", "acad_year"), "x")
+  merged_set <- ea_merge(format_stacked_ohc, dpi_merge_data, c("merge_id", "acad_year"))
 
   # create merge flag variable
-  merged_set[, flag_merge := 0]
-  merged_set[!is.na(lds_student_key), flag_merge := 1]
+  merged_set[, flag_merge := 1]
+  merged_set[is.na(lds_student_key) | is.na(child_id), flag_merge := 0]
   
   # create frequency of merge flag by year
   qc_merge_rate <- ea_table(merged_set, c("acad_year", "flag_merge"))
@@ -131,6 +164,7 @@
     
     ea_write(unmerged_set, "X:/LFS-Education Outcomes/qc/unmerged_id_set.csv")
     ea_write(qc_merge_rate, "X:/LFS-Education Outcomes/qc/merge_rates_by_yr.csv")
+    ea_write(qc_id_merge, "X:/LFS-Education Outcomes/qc/merge_rates_by_id.csv")
     
   }
 
