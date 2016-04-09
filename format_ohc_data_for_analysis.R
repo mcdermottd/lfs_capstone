@@ -1,8 +1,8 @@
 ######################################################################
 # notes:
-# - purpose: import, format, and stack sets for each academic year
-# - inputs: 5 ohc long files, 2008 - 2012
-# - outputs: consolidated set with all years stacked together
+# - purpose: create formatted OHC data with one row per student per academic year (placements aggregated)
+# - inputs: stacked raw OHC file from DCF (updated)
+# - outputs:
 # - keywords: #brule
 # - general:
 ######################################################################
@@ -46,23 +46,21 @@
   # remove duplicates based on id, and placement start and end date #brule
   ohc_data_no_dups <- ea_no_dups(format_ohc_data, c("child_id", "plcmt_begin_date", "plcmt_end_date"))
   
+  # create lf date vars
+  ohc_data_no_dups[, ":="(lf_ohc_start_date = dmy(removal_date), lf_ohc_end_date = dmy(discharge_date), lf_pstart_date = dmy(plcmt_begin_date),
+                          lf_pend_date = dmy(plcmt_end_date))]
+  
   # fill in December 31, 2014 for placements missing end date or discharge date #brule
-  ohc_data_no_dups[is.na(plcmt_end_date), plcmt_end_date := "31DEC2014"]
-  ohc_data_no_dups[is.na(discharge_date), discharge_date := "31DEC2014"]
+  ohc_data_no_dups[is.na(lf_ohc_end_date), lf_ohc_end_date := ymd("2014-12-31")]
+  ohc_data_no_dups[is.na(lf_pend_date), lf_pend_date := ymd("2014-12-31")]
 
-  # change format of date variables
-  format_ohc_data[, lfs]
-  
   # calc number of ohc days and placement days
-  ohc_data_no_dups[, ohc_days := as.numeric(as.duration(dmy(discharge_date) - dmy(removal_date))) / 86400]
-  ohc_data_no_dups[, plcmt_days := as.numeric(as.duration(dmy(plcmt_end_date) - dmy(plcmt_begin_date))) / 86400]
+  ohc_data_no_dups[, ohc_days := lf_ohc_end_date - lf_ohc_start_date]
+  ohc_data_no_dups[, plcmt_days := lf_pend_date - lf_pstart_date]
 
-  # create school year for placement begin date, if month is after may, year = next academic year #brule
-  ohc_data_no_dups[, plcmt_begin_syear := ifelse(month(dmy(plcmt_begin_date)) > 5, year(dmy(plcmt_begin_date) + years(1)), 
-                                                 year(dmy(plcmt_begin_date)))]
-  
-  # create school year for placement end date, if month is after may, year = next academic year #brule
-  ohc_data_no_dups[, plcmt_end_syear := ifelse(month(dmy(plcmt_end_date)) > 5, year(dmy(plcmt_end_date) + years(1)), year(dmy(plcmt_end_date)))]
+  # create school year for placement begin and end dates, if month is after May (5), year = next academic year #brule
+  ohc_data_no_dups[, pstart_sch_yr := ifelse(month(lf_pstart_date) > 5, year(lf_pstart_date) + 1, year(lf_pstart_date))]
+  ohc_data_no_dups[, pend_sch_yr := ifelse(month(lf_pend_date) > 5, year(lf_pend_date) + 1, year(lf_pend_date))]
   
 #########################################
 # loop over placement years in data set #
