@@ -101,7 +101,9 @@
 
       # aggregate placements by child by year
       agg_acad_plcmt <- acad_yr_set[, list(n_plcmt_acad = .N,
-                                           tot_plcmt_days_acad = sum(plcmt_days_acad)),
+                                           tot_plcmt_days_acad = sum(plcmt_days_acad),
+                                           first_pstart_date_acad = min(adj_pstart_date),
+                                           last_pend_date_acad = max(adj_pend_date)),
                                     by = "child_id"]
   
     ##################################################
@@ -130,8 +132,7 @@
       # remove specific placement start / end info
       unique_child_set <- subset(unique_child_set, select = c(child_id, child_gender, child_dob, child_age, child_race, child_ethnicity, 
                                                               child_hispanic, child_disability, disabilities, icwa_child, dcf_plcmt_type, region,
-                                                              provider_county, tpr_finalization_date, adoption_final_date, lf_ohc_start_date,
-                                                              lf_ohc_end_date))
+                                                              provider_county, tpr_finalization_date, adoption_final_date))
   
     ###################################################
     # merge child info with aggregated placement info #
@@ -165,9 +166,9 @@
 
   }
   
-################################################################
-# truncate placement days to those occuring in analysis period #
-################################################################
+##############################################
+# subset full set of placements to aggregate # 
+##############################################
 
   # remove placements that end before June 1, 2007 or end after May 31, 2012 #brule
   sub_ohc_data <- subset(ohc_data_no_dups, !(lf_pend_date < ymd("2007-06-01")) & !(lf_pstart_date > ymd("2012-05-31")))
@@ -199,7 +200,9 @@
   
   # aggregate placements by child
   agg_plcmt <- sub_ohc_data[, list(n_plcmt_tot = .N,
-                                   tot_plcmt_days = sum(adj_plcmt_days)),
+                                   tot_plcmt_days = sum(adj_plcmt_days),
+                                   first_pstart_date = min(adj_pstart_date),
+                                   last_pend_date = max(adj_pend_date)),
                             by = "child_id"]
   
   # create set of unduplicated ohc periods by child
@@ -207,7 +210,9 @@
   
   # aggregate ohc periods by child
   agg_ohc <- ohc_period_no_dups[, list(n_ohc_tot = .N,
-                                       tot_ohc_days = sum(adj_ohc_days)),
+                                       tot_ohc_days = sum(adj_ohc_days),
+                                       first_ohc_start_date = min(adj_ohc_start_date),
+                                       last_ohc_end_date = max(adj_ohc_end_date)),
                                 by = "child_id"]
   
   # combine agg placements and ohc
@@ -220,22 +225,31 @@
   # remove acad years not in analysis period from stacked set #brule
   sub_stacked_acad_set <- subset(stacked_acad_yr_set, acad_year > 2007 & acad_year < 2013)
   
-  # merge agg placement info with stacked set
-  ohc_analysis_set <- ea_merge(sub_stacked_acad_set, agg_plcmt_ohc, "child_id", "x", opt_print = 0)
+  # change child id var to character for merge
+  agg_plcmt_ohc[, child_id := as.character(child_id)]
   
-##########
-# export #
-##########
+  # merge agg placement info with stacked set
+  ohc_analysis_set <- ea_merge(agg_plcmt_ohc, sub_stacked_acad_set, "child_id", "y", opt_print = 0)
+  
+#####################
+# format and export #
+#####################
+  
+  # reorder vars in analysis set
+  ea_colorder(ohc_analysis_set, c("child_id", "acad_year", "child_gender", "child_dob", "child_age", "child_race", "child_ethnicity", 
+                                  "child_hispanic", "child_disability", "disabilities", "icwa_child", "n_ohc_tot", "tot_ohc_days", 
+                                  "first_ohc_start_date", "last_ohc_end_date", "n_plcmt_tot", "tot_plcmt_days", "first_pstart_date", "last_pend_date",
+                                  "n_plcmt_acad", "tot_plcmt_days_acad", "first_pstart_date_acad", "last_pend_date_acad"))
+
+  # sort by child id and acad year
+  setorder(ohc_analysis_set, child_id, acad_year)
 
   # export
   if (p_opt_exp == 1) { 
     
-    ea_write(ohc_data_full, "X:/LFS-Education Outcomes/data/lfs_data/stacked_ohc_data_full.csv")
-    ea_write(ohc_data_no_dups, "X:/LFS-Education Outcomes/data/lfs_data/stacked_ohc_data_no_dups.csv")
-    ea_write(stacked_acad_yr_data, "X:/LFS-Education Outcomes/data/lfs_data/stacked_acad_yr_set.csv")
+    ea_write(ohc_analysis_set, "X:/LFS-Education Outcomes/data/lfs_data/stacked_ohc_analysis_set.csv")
+    save(ohc_analysis_set, file = "X:/LFS-Education Outcomes/data/lfs_data/stacked_ohc_analysis_set.rdata")
 
-    ea_write(agg_plcmt, "X:/LFS-Education Outcomes/data/lfs_data/agg_plcmt_by_child.csv")
-    ea_write(a_avg_plcmt, "X:/LFS-Education Outcomes/qc/avg_plcmts.csv")
 
   }
 
