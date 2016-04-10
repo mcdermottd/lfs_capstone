@@ -2,7 +2,7 @@
 # notes:
 # - purpose: create formatted OHC data with one row per student per academic year (placements aggregated)
 # - inputs: stacked raw OHC file from DCF (updated)
-# - outputs:
+# - outputs: OHC analysis set stacked by academic year (2008 - 2012)
 # - keywords: #brule
 # - general:
 ######################################################################
