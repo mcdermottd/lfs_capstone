@@ -16,6 +16,9 @@
   ea_start()
   
   # load packages
+  library(foreign)
+  library(readstata13)
+  library(lubridate)
   library(data.table)
 
 #############
@@ -30,127 +33,71 @@
 #############
   
   # load stacked ohc data
-  in_stacked_ohc <- fread("X:/LFS-Education Outcomes/data/lfs_data/stacked_acad_yr_set.csv", colClasses = "character")
+  in_stacked_ohc <- ea_load("X:/LFS-Education Outcomes/data/lfs_data/stacked_ohc_analysis_set.rdata")
   
-  # load ed outcomes data
-  in_stacked_dpi <- fread("X:/LFS-Education Outcomes/data/raw_data/DCFmatchedSample03012016.csv")
+  # load ed outcomes dat
+  in_stacked_dpi <- read.dta13("X:/LFS-Education Outcomes/data/lfs_data/dpimerged_w.dta")
   
-  # load id xwalk
-  in_id_xwalk <- fread("X:/LFS-Education Outcomes/data/raw_data/xwalk_child_id.csv")
-
 ############################
-# format ohc data to merge #
+# format dpi data to merge #
 ############################
   
-  # copy raw files
-  format_stacked_ohc <- copy(in_stacked_ohc)
-  format_id_xwalk <- copy(in_id_xwalk)
-  
-  # rename id vars in xwalk
-  setnames(format_id_xwalk, c("new_id", "CHILD_ID"), c("child_id", "merge_id"))
-  
-  # remove id duplicates #brule
-  format_id_xwalk <- ea_no_dups(format_id_xwalk, "child_id")
-  
-  # format child id var to merge
-  format_id_xwalk[, child_id := as.character(child_id)]
-  
-  # merge with ohc data
-  format_stacked_ohc <- ea_merge(format_id_xwalk, format_stacked_ohc, "child_id", "y")
-  
-###############################################
-# remove duplicates, format dpi data to merge #
-###############################################
-  
-  # copy raw file
+  # copy dpi file
   format_stacked_dpi <- copy(in_stacked_dpi)
   
-  # remove exact duplicates #brule
-  format_stacked_dpi <- ea_no_dups(format_stacked_dpi, opt_key_all = 1)
+  # replace NA strings ("NA", "") with actual NA
+  format_stacked_dpi[ format_stacked_dpi == "NA"] <- NA
+  format_stacked_dpi[ format_stacked_dpi == ""] <- NA
   
-  # convert variable names to lowercase
-  setnames(format_stacked_dpi, colnames(format_stacked_dpi), tolower(colnames(format_stacked_dpi)))
-
-  # sort based on child id, school year, and test scores (to remove rows with missing scores first) #brule
-  setorder(format_stacked_dpi, lds_student_key, school_year, math_kce_scale_score, rdg_kce_scale_score, na.last = TRUE)
-  
-  # remove duplicates based on child_id and school_year #brule
-  format_stacked_dpi <- ea_no_dups(format_stacked_dpi, c("lds_student_key", "school_year"))
-  
-  # create academic year var for merge
-  format_stacked_dpi[, acad_year := as.character(paste0("20", ea_scan(school_year, 2, "-")))]
-
-  # rename child id var for merge
-  setnames(format_stacked_dpi, "child_id", "merge_id")
-
-######################################
-# calculate merge rates based on ids #
-######################################
-  
-  # subset to dpi data with merge id
-  dpi_merge_data <- subset(format_stacked_dpi, !is.na(merge_id))
-  
-  # remove duplicates
-  dpi_merge_ids <- ea_no_dups(dpi_merge_data, "merge_id")
-  
-  # remove duplicates in ohc data
-  ohc_merge_ids <- ea_no_dups(format_stacked_ohc, "child_id")
-  
-  # merge sets together
-  unmerged_ids <- ea_merge(ohc_merge_ids, dpi_merge_ids, c("merge_id"))
-
-  # subset to id vars
-  unmerged_ids <- subset(unmerged_ids, select = c(child_id, merge_id, lds_student_key))
-  
-  # create flags for mis-merges
-  unmerged_ids[, c("flag_ohc", "flag_dpi") := 0]
-  unmerged_ids[!is.na(lds_student_key), flag_dpi := 1]
-  unmerged_ids[!is.na(child_id), flag_ohc := 1]
-  
-  # remove merged ids
-  unmerged_ids <- subset(unmerged_ids, !(flag_dpi == 1 & flag_ohc == 1))
-  
-  # create frequency of merge flag by year
-  qc_id_merge <- ea_table(unmerged_ids, c("flag_ohc", "flag_dpi"), opt_percent = 1)
+  # delete unneeded variables
+  format_stacked_dpi <- subset(format_stacked_dpi, select = -c(schoolyr, dups, dups_1, dups_2, `_merge`))
 
 #######################
 # merge with ohc data #
 #######################
   
-  # subset to dpi data with merge id
-  dpi_merge_data <- subset(format_stacked_dpi, !is.na(merge_id))
+  # copy ohc file
+  stacked_ohc <- copy(in_stacked_ohc)
   
-  # merge ohc and dpi data, on merge id and academic year var
-  merged_set <- ea_merge(format_stacked_ohc, dpi_merge_data, c("merge_id", "acad_year"))
+  # subset to dpi data with merge id
+  dpi_merge_data <- subset(format_stacked_dpi, !is.na(child_id))
+  
+  ##################
+  ###### TEMP ######
+  ##################
+
+    # remove entries with duplicate child ids
+    dpi_merge_data <- ea_no_dups(dpi_merge_data, "child_id", opt_delete_all = 1)
+  
+  ##################
+  ###### TEMP ######
+  ##################
+  
+  # merge ohc and dpi data
+  merged_set <- ea_merge(dpi_merge_data, stacked_ohc, "child_id", "x")
 
   # create merge flag variable
-  merged_set[, flag_merge := 1]
-  merged_set[is.na(lds_student_key) | is.na(child_id), flag_merge := 0]
-  
-  # create frequency of merge flag by year
-  qc_merge_rate <- ea_table(merged_set, c("acad_year", "flag_merge"))
+  merged_set[, flag_merge := ifelse(is.na(acad_year), 0, 1)]
 
   # subset to unmerged records
-  unmerged_set <- subset(merged_set, flag_merge == 0, select = c(child_id, merge_id, lds_student_key))
+  unmerged_set <- subset(merged_set, flag_merge == 0, select = c(child_id, lds_student_key))
   
   # remove dups to create unique unmerged ids
-  unmerged_set <- ea_no_dups(unmerged_set, "merge_id", opt_print = 0)
-  
+  unmerged_set <- ea_no_dups(unmerged_set, "child_id", opt_print = 0)
   
   # remove ohc demo vars, coming from dpi data #brule
-  ohc_dpi_data <- subset(ohc_dpi_data, select = -c(child_gender, child_race, child_ethnicity, child_hispanic, child_disability, disabilities, 
-                                                  icwa_child, fl_mntal_retardatn, fl_phys_disabled, fl_vis_hearing_impr, fl_emotion_dstrbd, 
-                                                  fl_othr_spc_care, fl_lrn_disability, child_level_of_need))
+  # ohc_dpi_data <- subset(ohc_dpi_data, select = -c(child_gender, child_race, child_ethnicity, child_hispanic, child_disability, disabilities, 
+  #                                                 icwa_child, fl_mntal_retardatn, fl_phys_disabled, fl_vis_hearing_impr, fl_emotion_dstrbd, 
+  #                                                 fl_othr_spc_care, fl_lrn_disability, child_level_of_need))
   
   # create controls set
-  controls_set <- subset(format_stacked_dpi, is.na(merge_id))
+  controls_set <- subset(format_stacked_dpi, is.na(child_id))
   
   # stack merged set with controls
-  full_set <- rbind(ohc_dpi_data, controls_set, fill = TRUE)
+  full_set <- rbind(merged_set, controls_set, fill = TRUE)
   
   # create OHC flag
-  full_set[, flag_ohc := 0]
-  full_set[!is.na(merge_id), flag_ohc := 1]
+  full_set[, flag_ohc := ifelse(!is.na(child_id), 1, 0)]
 
   
 ##########
