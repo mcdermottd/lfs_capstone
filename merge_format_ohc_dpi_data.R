@@ -16,8 +16,8 @@
   ea_start()
   
   # load packages
-  library(foreign)
-  library(readstata13)
+  # library(foreign)
+  # library(readstata13)
   library(lubridate)
   library(data.table)
 
@@ -36,8 +36,9 @@
   in_stacked_ohc <- ea_load("X:/LFS-Education Outcomes/data/lfs_data/stacked_ohc_analysis_set.rdata")
   
   # load ed outcomes dat
-  in_stacked_dpi <- read.dta13("X:/LFS-Education Outcomes/data/lfs_data/dpimerged_w.dta")
-  
+  # in_stacked_dpi <- read.dta13("X:/LFS-Education Outcomes/data/lfs_data/dpimerged_w.dta")
+  in_stacked_dpi <- fread("X:/LFS-Education Outcomes/data/raw_data/DCFmatchedSample03012016.csv")
+
 ############################
 # format dpi data to merge #
 ############################
@@ -45,13 +46,42 @@
   # copy dpi file
   format_stacked_dpi <- copy(in_stacked_dpi)
   
-  # replace NA strings ("NA", "") with actual NA
-  format_stacked_dpi[ format_stacked_dpi == "NA"] <- NA
-  format_stacked_dpi[ format_stacked_dpi == ""] <- NA
+  # remove exact duplicates #brule
+  format_stacked_dpi <- ea_no_dups(format_stacked_dpi, opt_key_all = 1)
   
-  # delete unneeded variables
-  format_stacked_dpi <- subset(format_stacked_dpi, select = -c(schoolyr, dups, dups_1, dups_2, `_merge`))
+  # convert variable names to lowercase
+  setnames(format_stacked_dpi, colnames(format_stacked_dpi), tolower(colnames(format_stacked_dpi)))
+  
+  # create academic year var
+  format_stacked_dpi[, acad_year := paste0("20", ea_scan(school_year, 2, "-"))]
+  
+  # # replace NA strings ("NA", "") with actual NA
+  # format_stacked_dpi[ format_stacked_dpi == "NA"] <- NA
+  # format_stacked_dpi[ format_stacked_dpi == ""] <- NA
+  # 
+  # # delete unneeded variables
+  # format_stacked_dpi <- subset(format_stacked_dpi, select = -c(schoolyr, dups, dups_1, dups_2, `_merge`))
 
+########################################
+# create new ids for merge / anaalysis #
+########################################
+  
+  # create lf ids
+  format_stacked_dpi[, ":="(lf_dpi_id = paste0("dpi_", lds_student_key), lf_dcf_id = paste0("dcf_", child_id))]
+
+  # combine ids, use dcf id if not NA, otherwise use dpi id #brule
+  format_stacked_dpi[, lf_child_id := ifelse(lf_dcf_id != "dcf_NA", lf_dcf_id, lf_dpi_id)]
+
+###############################################
+# subset to one row per student per acad year #
+###############################################
+  
+  # sort based on child id, school year, and test scores (to remove rows with missing scores first) #brule
+  setorder(format_stacked_dpi, lf_child_id, acad_year, math_kce_scale_score, rdg_kce_scale_score, na.last = TRUE)
+   
+  # remove duplicates based on child_id and school_year #brule
+  stacked_dpi_no_dups <- ea_no_dups(format_stacked_dpi, c("lf_child_id", "acad_year"))
+  
 #######################
 # merge with ohc data #
 #######################
@@ -59,46 +89,48 @@
   # copy ohc file
   stacked_ohc <- copy(in_stacked_ohc)
   
-  # subset to dpi data with merge id
-  dpi_merge_data <- subset(format_stacked_dpi, !is.na(child_id))
+  # create id for merge
+  setnames(stacked_ohc, "child_id", "lf_child_id")
+  stacked_ohc[, lf_child_id := paste0("dcf_", lf_child_id)]
   
-  ##################
-  ###### TEMP ######
-  ##################
+  # create ohc flag
+  stacked_ohc[, flag_ohc := 1]
 
-    # remove entries with duplicate child ids
-    dpi_merge_data <- ea_no_dups(dpi_merge_data, "child_id", opt_delete_all = 1)
-  
-  ##################
-  ###### TEMP ######
-  ##################
+  # # subset to dpi data with merge id
+  # dpi_merge_data <- subset(format_stacked_dpi, !is.na(child_id))
+  # 
+  # ##################
+  # ###### TEMP ######
+  # ##################
+  # 
+  #   # remove entries with duplicate child ids
+  #   dpi_merge_data <- ea_no_dups(dpi_merge_data, "child_id", opt_delete_all = 1)
+  # 
+  # ##################
+  # ###### TEMP ######
+  # ##################
   
   # merge ohc and dpi data
-  merged_set <- ea_merge(dpi_merge_data, stacked_ohc, "child_id", "x")
+  merged_set <- ea_merge(stacked_dpi_no_dups, stacked_ohc, c("lf_child_id", "acad_year"), "x")
 
-  # create merge flag variable
-  merged_set[, flag_merge := ifelse(is.na(acad_year), 0, 1)]
+  # subset out unmerged ohc acad outcomes
+  analysis_set <- subset(merged_set, !(is.na(flag_ohc) & ea_scan(lf_child_id, 1, "_") == "dcf"))
+  unmerged_ohc <- subset(merged_set, is.na(flag_ohc) & ea_scan(lf_child_id, 1, "_") == "dcf")
 
-  # subset to unmerged records
-  unmerged_set <- subset(merged_set, flag_merge == 0, select = c(child_id, lds_student_key))
+  # create set of unduplicated, unmerged ids
+  unmerged_ohc_ids <- subset(unmerged_ohc, select = c(lds_student_key, child_id))
+  unmerged_ohc_ids <- ea_no_dups(unmerged_ohc_ids, "child_id", opt_print = 0)
   
-  # remove dups to create unique unmerged ids
-  unmerged_set <- ea_no_dups(unmerged_set, "child_id", opt_print = 0)
+  # add 0 value to flag_ohc for comparison students
+  analysis_set[is.na(flag_ohc), flag_ohc := 0]
+
+  # reorder variables
+  ea_colorder(analysis_set, c("lf_child_id", "flag_ohc"))
   
   # remove ohc demo vars, coming from dpi data #brule
   # ohc_dpi_data <- subset(ohc_dpi_data, select = -c(child_gender, child_race, child_ethnicity, child_hispanic, child_disability, disabilities, 
   #                                                 icwa_child, fl_mntal_retardatn, fl_phys_disabled, fl_vis_hearing_impr, fl_emotion_dstrbd, 
   #                                                 fl_othr_spc_care, fl_lrn_disability, child_level_of_need))
-  
-  # create controls set
-  controls_set <- subset(format_stacked_dpi, is.na(child_id))
-  
-  # stack merged set with controls
-  full_set <- rbind(merged_set, controls_set, fill = TRUE)
-  
-  # create OHC flag
-  full_set[, flag_ohc := ifelse(!is.na(child_id), 1, 0)]
-
   
 ##########
 # export #
@@ -107,11 +139,8 @@
   # export
   if (p_opt_exp == 1) { 
     
-    ea_write(full_set, "X:/LFS-Education Outcomes/data/lfs_data/combined_dpi_dcf_set.csv")
-    
-    ea_write(unmerged_set, "X:/LFS-Education Outcomes/qc/unmerged_id_set.csv")
-    ea_write(qc_merge_rate, "X:/LFS-Education Outcomes/qc/merge_rates_by_yr.csv")
-    ea_write(qc_id_merge, "X:/LFS-Education Outcomes/qc/merge_rates_by_id.csv")
+    ea_write(full_set, ".csv")
+    ea_write(unmerged_ohc_ids, "X:/LFS-Education Outcomes/qc/unmerged_id_set.csv")
     
   }
 
