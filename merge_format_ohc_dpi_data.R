@@ -1,8 +1,8 @@
 ######################################################################
 # notes:
 # - purpose: merge ohc with dpi set
-# - inputs: ohc data aggregated to latest acad year (one row per student), full stacked dpi data 
-# - outputs: merged set, latest ohc placement data merged with dpi outcomes over multiple years (+ control data)
+# - inputs: ohc data aggregated to one row per academic year, full stacked dpi data 
+# - outputs: merged set, matched by academic year (+ control data), with unmatched ohc data removed
 # - keywords: #brule
 # - general:
 ######################################################################
@@ -16,9 +16,7 @@
   ea_start()
   
   # load packages
-  # library(foreign)
   # library(readstata13)
-  library(lubridate)
   library(data.table)
 
 #############
@@ -94,7 +92,7 @@
   stacked_ohc[, lf_child_id := paste0("dcf_", lf_child_id)]
   
   # create ohc flag
-  stacked_ohc[, flag_ohc := 1]
+  stacked_ohc[, flag_ohc_yr := 1]
 
   # # subset to dpi data with merge id
   # dpi_merge_data <- subset(format_stacked_dpi, !is.na(child_id))
@@ -113,19 +111,33 @@
   # merge ohc and dpi data
   merged_set <- ea_merge(stacked_dpi_no_dups, stacked_ohc, c("lf_child_id", "acad_year"), "x")
 
+  # create set of unduplicated, merged ids
+  merged_ohc_ids <- subset(merged_set, flag_ohc_yr == 1, select = c(lf_child_id, flag_ohc_yr))
+  merged_ohc_ids <- ea_no_dups(merged_ohc_ids, "lf_child_id", opt_print = 0)
+  
+  # rename flag
+  setnames(merged_ohc_ids, "flag_ohc_yr", "flag_ohc")
+  
+  # re-merge flags with all entries
+  merged_set <- ea_merge(merged_set, merged_ohc_ids, "lf_child_id", opt_print = 0)
+
+  # fill in NAs with 0 flags
+  merged_set[is.na(flag_ohc_yr), flag_ohc_yr := 0]
+  merged_set[is.na(flag_ohc), flag_ohc := 0]
+
   # subset out unmerged ohc acad outcomes
-  analysis_set <- subset(merged_set, !(is.na(flag_ohc) & ea_scan(lf_child_id, 1, "_") == "dcf"))
-  unmerged_ohc <- subset(merged_set, is.na(flag_ohc) & ea_scan(lf_child_id, 1, "_") == "dcf")
+  analysis_set <- subset(merged_set, !(flag_ohc == 0 & ea_scan(lf_child_id, 1, "_") == "dcf"))
+  unmerged_ohc <- subset(merged_set, flag_ohc == 0 & ea_scan(lf_child_id, 1, "_") == "dcf")
 
   # create set of unduplicated, unmerged ids
-  unmerged_ohc_ids <- subset(unmerged_ohc, select = c(lds_student_key, child_id))
-  unmerged_ohc_ids <- ea_no_dups(unmerged_ohc_ids, "child_id", opt_print = 0)
-  
-  # add 0 value to flag_ohc for comparison students
-  analysis_set[is.na(flag_ohc), flag_ohc := 0]
+  unmerged_ohc_ids <- subset(unmerged_ohc, select = c(lf_child_id, flag_ohc))
+  unmerged_ohc_ids <- ea_no_dups(unmerged_ohc_ids, "lf_child_id", opt_print = 0)
 
+  # stack merged and unmerged ids
+  ohc_ids <- rbind(merged_ohc_ids, unmerged_ohc_ids)
+  
   # reorder variables
-  ea_colorder(analysis_set, c("lf_child_id", "flag_ohc"))
+  ea_colorder(analysis_set, c("lf_child_id", "flag_ohc", "flag_ohc_yr"))
   
   # remove ohc demo vars, coming from dpi data #brule
   # ohc_dpi_data <- subset(ohc_dpi_data, select = -c(child_gender, child_race, child_ethnicity, child_hispanic, child_disability, disabilities, 
@@ -139,8 +151,10 @@
   # export
   if (p_opt_exp == 1) { 
     
-    ea_write(full_set, ".csv")
-    ea_write(unmerged_ohc_ids, "X:/LFS-Education Outcomes/qc/unmerged_id_set.csv")
+    ea_write(analysis_set, "X:/LFS-Education Outcomes/data/lfs_data/merged_analysis_set.csv")
+    save(analysis_set, file = "X:/LFS-Education Outcomes/data/lfs_data/merged_analysis_set.rdata")
+
+    ea_write(ohc_ids, "X:/LFS-Education Outcomes/qc/ohc_ids_merges.csv")
     
   }
 
