@@ -32,49 +32,15 @@
 #############
 
   # load child info
-  in_child_info <- ea_load("X:/LFS-Education Outcomes/data/lfs_data/analysis_set_child_info.rdata")
-    
-#########################################
-# structure child demo set to summarize #
-#########################################
-  
-  # copy child demo data set
-  child_demo_data <- copy(in_child_info)
-  
-  # create race dummies
-  child_demo_data[!is.na(gender_code_cd), d_male := ifelse(gender_code_cd == "M", 1, 0)]
-  child_demo_data[!is.na(gender_code_cd), d_female := ifelse(gender_code_cd == "F", 1, 0)]
-
-  # convert elp scale to dummy variable
-  child_demo_data[!is.na(elp_code_cd), d_elp := ifelse(elp_code_cd <= 5, 1, 0)]
-  
-  # convert disability code to dummy variable
-  child_demo_data[!is.na(disab_ye), d_sped := ifelse(disab_ye == "N", 0, 1)]
-  
-  # convert frl code to dummy variable
-  child_demo_data[!is.na(frl_ye), d_frl := ifelse(frl_ye == "N", 0, 1)]
-  child_demo_data[!is.na(frl_ye), d_fpl := ifelse(frl_ye == "F", 1, 0)]
-  child_demo_data[!is.na(frl_ye), d_rpl := ifelse(frl_ye %in% c("A", "R"), 1, 0)]
-
-  # dummy out race variable
-  child_demo_data <- db_dummy(child_demo_data, "race_eth_code_cd", opt_data_frequency = 0)
-  
-  # rename dummied race variables
-  setnames(child_demo_data, c("d_race_eth_code_cd_W", "d_race_eth_code_cd_missing", "d_race_eth_code_cd_I", "d_race_eth_code_cd_B", 
-                              "d_race_eth_code_cd_H", "d_race_eth_code_cd_A"), c("d_race_white", "d_race_missing", "d_race_indian", "d_race_black",
-                                                                                 "d_race_hispanic", "d_race_asian"))
-  
-  
-  # set all race variables to missing, if race_missing == 1
-  child_demo_data[d_race_missing == 1, c("d_race_white", "d_race_missing", "d_race_indian", "d_race_black", "d_race_hispanic", "d_race_asian") := NA]
-  
-  # create non-white dummy var
-  child_demo_data[d_race_missing != 1, d_race_nonwhite := ifelse(d_race_white != 1, 1, 0)]
+  in_child_info <- ea_load("X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_child_info.rdata")
 
 ##################################
 # calculate overall demographics #
 ##################################
-
+  
+  # copy child demo data set
+  child_demo_data <- copy(in_child_info)
+  
   # calc overall demo summary
   a_demo_overall <- child_demo_data[, list(n_obs = .N,
                                            per_male = round(mean(d_male, na.rm = TRUE), 3),
