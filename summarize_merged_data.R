@@ -18,6 +18,7 @@
   # load packages
   library(ggplot2)
   library(data.table)
+  library(eaanalysis)
 
 #############
 # set parms #
@@ -30,70 +31,131 @@
 # load data #
 #############
 
-  # load stacked analysis set
-  in_analysis_set <- ea_load("X:/LFS-Education Outcomes/data/lfs_data/merged_analysis_set.rdata")
+  # load child info
+  in_child_info <- ea_load("X:/LFS-Education Outcomes/data/lfs_data/analysis_set_child_info.rdata")
     
-######################################
-# create child demo set to summarize #
-######################################
+#########################################
+# structure child demo set to summarize #
+#########################################
   
-  # copy analysis data
-  child_demo_data <- copy(in_analysis_set)
+  # copy child demo data set
+  child_demo_data <- copy(in_child_info)
+  
+  # create race dummies
+  child_demo_data[!is.na(gender_code_cd), d_male := ifelse(gender_code_cd == "M", 1, 0)]
+  child_demo_data[!is.na(gender_code_cd), d_female := ifelse(gender_code_cd == "F", 1, 0)]
 
-  # subset to one row per child, keeping latest entry
-  setorder(child_demo_data, lf_child_id, -acad_year)
-  child_demo_data <- ea_no_dups(child_demo_data, "lf_child_id")
+  # convert elp scale to dummy variable
+  child_demo_data[!is.na(elp_code_cd), d_elp := ifelse(elp_code_cd <= 5, 1, 0)]
   
-  # keep only variables constant over time
-  child_demo_data <- subset(child_demo_data, select = c(lf_child_id, flag_ohc, econ_disadv_code_cd, elp_code_cd, gender_code_cd, grade_level_cd, 
-                                                        homeless_status_ind_cd, migrant_status_ind_cd, native_lang_code_cd, primary_disab_code_cd,
-                                                        race_eth_code_cd, composite_eng_prof_lvl_cd, frl_cd, frl_ye, disab_cd, disab_ye, n_ohc_tot,
-                                                        tot_ohc_days, first_ohc_start_date, last_ohc_end_date, n_plcmt_tot, tot_plcmt_days, 
-                                                        first_pstart_date, last_pend_date))
+  # convert disability code to dummy variable
+  child_demo_data[!is.na(disab_ye), d_sped := ifelse(disab_ye == "N", 0, 1)]
   
+  # convert frl code to dummy variable
+  child_demo_data[!is.na(frl_ye), d_frl := ifelse(frl_ye == "N", 0, 1)]
+  child_demo_data[!is.na(frl_ye), d_fpl := ifelse(frl_ye == "F", 1, 0)]
+  child_demo_data[!is.na(frl_ye), d_rpl := ifelse(frl_ye %in% c("A", "R"), 1, 0)]
+
+  # dummy out race variable
+  child_demo_data <- db_dummy(child_demo_data, "race_eth_code_cd", opt_data_frequency = 0)
+  
+  # rename dummied race variables
+  setnames(child_demo_data, c("d_race_eth_code_cd_W", "d_race_eth_code_cd_missing", "d_race_eth_code_cd_I", "d_race_eth_code_cd_B", 
+                              "d_race_eth_code_cd_H", "d_race_eth_code_cd_A"), c("d_race_white", "d_race_missing", "d_race_indian", "d_race_black",
+                                                                                 "d_race_hispanic", "d_race_asian"))
+  
+  
+  # set all race variables to missing, if race_missing == 1
+  child_demo_data[d_race_missing == 1, c("d_race_white", "d_race_missing", "d_race_indian", "d_race_black", "d_race_hispanic", "d_race_asian") := NA]
+  
+  # create non-white dummy var
+  child_demo_data[d_race_missing != 1, d_race_nonwhite := ifelse(d_race_white != 1, 1, 0)]
+
 ##################################
-# produce overall summary tables #
+# calculate overall demographics #
 ##################################
+
+  # calc overall demo summary
+  a_demo_overall <- child_demo_data[, list(n_obs = .N,
+                                           per_male = round(mean(d_male, na.rm = TRUE), 3),
+                                           per_elp = round(mean(d_elp, na.rm = TRUE), 3),
+                                           per_sped = round(mean(d_sped, na.rm = TRUE), 3),
+                                           per_frl = round(mean(d_frl, na.rm = TRUE), 3),
+                                           per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
+                                           per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
+                                           per_white = round(mean(d_race_white, na.rm = TRUE), 3),
+                                           per_black = round(mean(d_race_black, na.rm = TRUE), 3),
+                                           per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
+                                           per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
+                                           per_indian = round(mean(d_race_indian, na.rm = TRUE), 3))]
+
+  # calc overall demo, ohc and not
+  a_demo_compare <- child_demo_data[, list(n_obs = .N,
+                                           per_male = round(mean(d_male, na.rm = TRUE), 3),
+                                           per_elp = round(mean(d_elp, na.rm = TRUE), 3),
+                                           per_sped = round(mean(d_sped, na.rm = TRUE), 3),
+                                           per_frl = round(mean(d_frl, na.rm = TRUE), 3),
+                                           per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
+                                           per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
+                                           per_white = round(mean(d_race_white, na.rm = TRUE), 3),
+                                           per_black = round(mean(d_race_black, na.rm = TRUE), 3),
+                                           per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
+                                           per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
+                                           per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
+                                    by = flag_ohc]
+  
+######################
+# summarize ohc data #
+######################
   
   # subset to data for melt
-  sub_ohc_data_unique <- subset(sub_ohc_data_unique, select = c(child_id, removal_date, ohc_days_tot, num_plcmt_tot, plcmt_days_tot))
+  sub_ohc_data <- subset(child_demo_data, flag_ohc == 1, select = c(lf_child_id, n_ohc_tot, tot_ohc_days, n_plcmt_tot, tot_plcmt_days, d_male,
+                                                                    d_female, d_elp, d_sped, d_frl, d_fpl, d_rpl, d_race_white, d_race_indian, 
+                                                                    d_race_black, d_race_hispanic, d_race_asian))
 
   # create avg days per placement var
-  sub_ohc_data_unique[, avg_days_per_plcmt := plcmt_days_tot / num_plcmt_tot]
+  sub_ohc_data[, avg_days_per_plcmt := tot_plcmt_days / n_plcmt_tot]
   
   # melt ohc data long to summarize
-  long_data_overall <- melt.data.table(sub_ohc_data_unique, id.vars = c("child_id", "removal_date"))
-  
-  # create removal year var
-  long_data_overall[, removal_year := year(removal_date)]
-  
-  # sort by variable, removal year
-  setorder(long_data_overall, variable, removal_year)
-  
-  # calc ohc stats overall
-  a_summ_overall <- long_data_overall[!is.na(value), list(n_obs = length(value),
-                                                           min = min(value),
-                                                           q25 = quantile(value, .25),
-                                                           q50 = quantile(value, .5),
-                                                           q75 = quantile(value, .75),
-                                                           max = max(value),
-                                                           mean = round(mean(value), 2),
-                                                           var = round(var(value), 2),
-                                                           sd = round(sd(value), 2)), 
-                                      by = c("variable")]
-  
-  # calc ohc stats overall, by removal year
-  a_summ_overall_by_yr <- long_data_overall[!is.na(value), list(n_obs = length(value),
-                                                                min = min(value),
-                                                                q25 = quantile(value, .25),
-                                                                q50 = quantile(value, .5),
-                                                                q75 = quantile(value, .75),
-                                                                max = max(value),
-                                                                mean = round(mean(value), 2),
-                                                                var = round(var(value), 2),
-                                                                sd = round(sd(value), 2)),
-                                            by = c("variable", "removal_year")]
+  ohc_data_long <- melt.data.table(sub_ohc_data, id.vars = c("lf_child_id", "d_male", "d_female", "d_elp", "d_sped", "d_frl", "d_fpl", "d_rpl",
+                                                             "d_race_white", "d_race_indian", "d_race_black", "d_race_hispanic", "d_race_asian"))
 
+  # calc ohc stats overall
+  a_ohc_overall <- ohc_data_long[!is.na(value), list(n_obs = length(value),
+                                                     min = min(value),
+                                                     q25 = quantile(value, .25),
+                                                     q50 = quantile(value, .5),
+                                                     q75 = quantile(value, .75),
+                                                     max = max(value),
+                                                     mean = round(mean(value), 3),
+                                                     var = round(var(value), 3),
+                                                     sd = round(sd(value), 3)), 
+                                 by = c("variable")]
+  
+  # calc ohc stats by gender
+  a_ohc_by_gender <- ohc_data_long[!is.na(value) & !is.na(d_male), list(n_obs = length(value),
+                                                                        min = min(value),
+                                                                        q25 = quantile(value, .25),
+                                                                        q50 = quantile(value, .5),
+                                                                        q75 = quantile(value, .75),
+                                                                        max = max(value),
+                                                                        mean = round(mean(value), 2),
+                                                                        var = round(var(value), 2),
+                                                                        sd = round(sd(value), 2)),
+                                   by = c("variable", "d_male")]
+
+  # calc ohc stats by race (white vs non-white)
+  a_ohc_by_race <- ohc_data_long[!is.na(value) & !is.na(d_male), list(n_obs = length(value),
+                                                                      min = min(value),
+                                                                      q25 = quantile(value, .25),
+                                                                      q50 = quantile(value, .5),
+                                                                      q75 = quantile(value, .75),
+                                                                      max = max(value),
+                                                                      mean = round(mean(value), 2),
+                                                                      var = round(var(value), 2),
+                                                                      sd = round(sd(value), 2)),
+                                   by = c("variable", "d_race_white")]
+  
 #####################################
 # produce summary tables by acad yr #
 #####################################
