@@ -18,20 +18,21 @@
   # load packages
   # library(readstata13)
   library(data.table)
+  library(eaanalysis)
 
 #############
 # set parms #
 #############
 
   # output toggle
-  p_opt_exp <- 1
+  p_opt_exp <- 0
 
 #############
 # load data #
 #############
   
   # load stacked ohc data
-  in_stacked_ohc <- ea_load("X:/LFS-Education Outcomes/data/lfs_data/stacked_ohc_analysis_set.rdata")
+  in_stacked_ohc <- ea_load("X:/LFS-Education Outcomes/data/lfs_interim_sets/stacked_ohc_formatted.rdata")
   
   # load ed outcomes dat
   # in_stacked_dpi <- read.dta13("X:/LFS-Education Outcomes/data/lfs_data/dpimerged_w.dta")
@@ -59,6 +60,38 @@
   # 
   # # delete unneeded variables
   # format_stacked_dpi <- subset(format_stacked_dpi, select = -c(schoolyr, dups, dups_1, dups_2, `_merge`))
+
+#######################################
+# create dummies for dpi demographics #
+#######################################
+  
+  # create race dummies
+  format_stacked_dpi[!is.na(gender_code_cd), d_male := ifelse(gender_code_cd == "M", 1, 0)]
+  format_stacked_dpi[!is.na(gender_code_cd), d_female := ifelse(gender_code_cd == "F", 1, 0)]
+
+  # convert elp scale to dummy variable
+  format_stacked_dpi[!is.na(elp_code_cd), d_elp := ifelse(elp_code_cd <= 5, 1, 0)]
+  
+  # convert disability code to dummy variable
+  format_stacked_dpi[!is.na(disab_ye), d_sped := ifelse(disab_ye == "N", 0, 1)]
+  
+  # convert frl code to dummy variable
+  format_stacked_dpi[!is.na(frl_ye), d_frl := ifelse(frl_ye == "N", 0, 1)]
+  format_stacked_dpi[!is.na(frl_ye), d_fpl := ifelse(frl_ye == "F", 1, 0)]
+  format_stacked_dpi[!is.na(frl_ye), d_rpl := ifelse(frl_ye %in% c("A", "R"), 1, 0)]
+
+  # dummy out race variable
+  format_stacked_dpi <- db_dummy(format_stacked_dpi, "race_eth_code_cd", opt_data_frequency = 0)
+  
+  # rename dummied race variables
+  setnames(format_stacked_dpi, c("d_race_eth_code_cd_W", "d_race_eth_code_cd_missing", "d_race_eth_code_cd_I", "d_race_eth_code_cd_B", 
+                                 "d_race_eth_code_cd_H", "d_race_eth_code_cd_A"), c("d_race_white", "d_race_missing", "d_race_indian", "d_race_black",
+                                                                                 "d_race_hispanic", "d_race_asian"))
+  
+  
+  # set all race variables to missing, if race_missing == 1
+  format_stacked_dpi[d_race_missing == 1, c("d_race_white", "d_race_missing", "d_race_indian", "d_race_black", "d_race_hispanic", 
+                                            "d_race_asian") := NA]
 
 ########################################
 # create new ids for merge / anaalysis #
@@ -174,7 +207,7 @@
   dpi_ohc_no_dups <- ea_no_dups(dpi_ohc_no_dups, "lf_child_id", opt_print = 0)
   
   # delete acad year variable
-  dpi_ohc_no_dups$acad_year <- NULL
+  dpi_ohc_no_dups[, acad_year := NULL]
   
   # reorder variables
   ea_colorder(analysis_set, c("lf_child_id", "lds_student_key", "flag_ohc", "flag_ohc_yr"))
@@ -188,14 +221,14 @@
   # export
   if (p_opt_exp == 1) { 
     
-    ea_write(analysis_set, "X:/LFS-Education Outcomes/data/lfs_data/analysis_set_full.csv")
-    save(analysis_set, file = "X:/LFS-Education Outcomes/data/lfs_data/analysis_set_full.rdata")
+    ea_write(analysis_set, "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_full.csv")
+    save(analysis_set, file = "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_full.rdata")
 
-    ea_write(dpi_ohc_data, "X:/LFS-Education Outcomes/data/lfs_data/analysis_set_no_plcmt.csv")
-    save(dpi_ohc_data, file = "X:/LFS-Education Outcomes/data/lfs_data/analysis_set_no_plcmt.rdata")
+    ea_write(dpi_ohc_data, "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_no_plcmt.csv")
+    save(dpi_ohc_data, file = "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_no_plcmt.rdata")
     
-    ea_write(dpi_ohc_no_dups, "X:/LFS-Education Outcomes/data/lfs_data/analysis_set_child_info.csv")
-    save(dpi_ohc_no_dups, file = "X:/LFS-Education Outcomes/data/lfs_data/analysis_set_child_info.rdata")
+    ea_write(dpi_ohc_no_dups, "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_child_info.csv")
+    save(dpi_ohc_no_dups, file = "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_child_info.rdata")
     
     ea_write(ohc_ids, "X:/LFS-Education Outcomes/qc/ohc_merged_ids.csv")
     
