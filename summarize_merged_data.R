@@ -30,27 +30,26 @@
 # load data #
 #############
 
-  in_stacked_ohc <- fread("X:/LFS-Education Outcomes/data/lfs_data/stacked_acad_yr_set.csv", colClasses = "character")
-
-############################
-# format data to summarize #
-############################
+  # load stacked analysis set
+  in_analysis_set <- ea_load("X:/LFS-Education Outcomes/data/lfs_data/merged_analysis_set.rdata")
+    
+######################################
+# create child demo set to summarize #
+######################################
   
-  # copy raw data
-  sub_ohc_data <- copy(in_stacked_ohc)
-  
-  # set placement vars to numeric
-  sub_ohc_data[, 11:15] <- lapply(sub_ohc_data[, 11:15, with = FALSE], as.numeric)
+  # copy analysis data
+  child_demo_data <- copy(in_analysis_set)
 
-  # remove entries with 0 for placement days in acad year #brule
-  sub_ohc_data <- subset(sub_ohc_data, plcmt_days_acad_year != 0)
+  # subset to one row per child, keeping latest entry
+  setorder(child_demo_data, lf_child_id, -acad_year)
+  child_demo_data <- ea_no_dups(child_demo_data, "lf_child_id")
   
-  # set placement days longer than 365 to 365 #brule
-  sub_ohc_data[plcmt_days_acad_year > 365, plcmt_days_acad_year := 365]
-
-  # create set that has one row per student to calc overall numbers
-  setorder(sub_ohc_data, child_id, -acad_year)
-  sub_ohc_data_unique <- ea_no_dups(sub_ohc_data, "child_id")
+  # keep only variables constant over time
+  child_demo_data <- subset(child_demo_data, select = c(lf_child_id, flag_ohc, econ_disadv_code_cd, elp_code_cd, gender_code_cd, grade_level_cd, 
+                                                        homeless_status_ind_cd, migrant_status_ind_cd, native_lang_code_cd, primary_disab_code_cd,
+                                                        race_eth_code_cd, composite_eng_prof_lvl_cd, frl_cd, frl_ye, disab_cd, disab_ye, n_ohc_tot,
+                                                        tot_ohc_days, first_ohc_start_date, last_ohc_end_date, n_plcmt_tot, tot_plcmt_days, 
+                                                        first_pstart_date, last_pend_date))
   
 ##################################
 # produce overall summary tables #
