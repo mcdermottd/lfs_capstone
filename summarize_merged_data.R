@@ -33,6 +33,9 @@
 
   # load child info
   in_child_info <- ea_load("X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_child_info.rdata")
+  
+  # load acad year info
+  in_acad_year_data <- ea_load("X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_full.rdata")
 
 ##################################
 # calculate overall demographics #
@@ -78,7 +81,7 @@
   sub_ohc_data <- subset(child_demo_data, flag_ohc == 1, select = c(lf_child_id, n_ohc_tot, tot_ohc_days, n_plcmt_tot, tot_plcmt_days, d_male,
                                                                     d_female, d_elp, d_sped, d_frl, d_fpl, d_rpl, d_race_white, d_race_indian, 
                                                                     d_race_black, d_race_hispanic, d_race_asian))
-
+  
   # create avg days per placement var
   sub_ohc_data[, avg_days_per_plcmt := tot_plcmt_days / n_plcmt_tot]
   
@@ -126,10 +129,53 @@
 # produce summary tables by acad yr #
 #####################################
   
+  # copy acad year info
+  acad_yr_data <- copy(in_acad_year_data)
+  
+  # change necessary vars to numeric
+  acad_yr_data[, c("tot_plcmt_days_acad", "n_plcmt_acad")] <- lapply(acad_yr_data[, c("tot_plcmt_days_acad", "n_plcmt_acad"), 
+                                                                                  with = FALSE], as.numeric)
+
+  # create avg days per placement var
+  acad_yr_data[, avg_days_plcmt_acad := tot_plcmt_days_acad / n_plcmt_acad]
+  
+  # sort by academic year
+  setorder(acad_yr_data, acad_year)
+  
+  # calc stats of ohc students per year
+  a_ohc_by_yr <- acad_yr_data[flag_ohc == 1, list(n_obs = .N,
+                                                   avg_age = round(mean(age_in_years_cd, na.rm = TRUE), 3),
+                                                   per_male = round(mean(d_male, na.rm = TRUE), 3),
+                                                   per_elp = round(mean(d_elp, na.rm = TRUE), 3),
+                                                   per_sped = round(mean(d_sped, na.rm = TRUE), 3),
+                                                   per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
+                                                   per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
+                                                   per_white = round(mean(d_race_white, na.rm = TRUE), 3),
+                                                   avg_plcmt = round(mean(n_plcmt_acad), 3),
+                                                   avg_plcmt_days = round(mean(tot_plcmt_days_acad), 3),
+                                                   avg_plcmt_length = round(mean(avg_days_plcmt_acad), 3)), 
+                              by = acad_year]
+  
+  # calc stats of ohc placements by year
+  a_plcmt_by_yr <- acad_yr_data[flag_ohc_yr == 1, list(n_obs = .N,
+                                                       avg_age = round(mean(age_in_years_cd, na.rm = TRUE), 3),
+                                                       per_male = round(mean(d_male, na.rm = TRUE), 3),
+                                                       per_elp = round(mean(d_elp, na.rm = TRUE), 3),
+                                                       per_sped = round(mean(d_sped, na.rm = TRUE), 3),
+                                                       per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
+                                                       per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
+                                                       per_white = round(mean(d_race_white, na.rm = TRUE), 3),
+                                                       avg_plcmt = round(mean(n_plcmt_acad), 3),
+                                                       avg_plcmt_days = round(mean(tot_plcmt_days_acad), 3),
+                                                       avg_plcmt_length = round(mean(avg_days_plcmt_acad), 3)), 
+                                by = acad_year]
+  
+  
+  
+  
   # subset to data for melt
-  sub_ohc_acad_yr <- subset(sub_ohc_data, acad_year > 2007 & acad_year < 2013, select = c(child_id, acad_year, removal_date, ohc_days_tot, 
-                                                                                          num_plcmt_tot, plcmt_days_tot, num_plcmt_acad_yr, 
-                                                                                          plcmt_days_acad_year))
+  sub_ohc_acad_yr <- subset(acad_yr_data, flag_ohc_yr == 1, select = c(lf_child_id, acad_year, removal_date, ohc_days_tot, num_plcmt_tot, 
+                                                                       plcmt_days_tot, num_plcmt_acad_yr, plcmt_days_acad_year))
   
   # create avg days per placement var
   sub_ohc_acad_yr[, avg_days_per_plcmt := plcmt_days_acad_year / num_plcmt_acad_yr]
