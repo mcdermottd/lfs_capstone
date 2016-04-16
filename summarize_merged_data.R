@@ -37,6 +37,61 @@
   # load acad year info
   in_acad_year_data <- ea_load("X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_full.rdata")
 
+#########################
+# format acad year data #
+#########################
+  
+  # copy acad year info
+  acad_yr_data <- copy(in_acad_year_data)
+  
+  # set missing ohc flags to 1
+  acad_yr_data[is.na(flag_ohc), flag_ohc := 1]
+  
+  # create additional flag when acad outcomes are missing
+  acad_yr_data[, flag_dpi_yr := ifelse(!is.na(lds_student_key), 1, 0)]
+  
+  # reorder vars
+  ea_colorder(acad_yr_data, c("lf_child_id", "lds_student_key", "child_id", "flag_ohc", "flag_ohc_yr", "flag_dpi_yr"))
+  
+###########################
+# standardize test scores #
+###########################
+  
+  # subset to necessary vars for melt
+  score_data_to_melt <- subset(acad_yr_data, flag_dpi_yr == 1, select = c(lf_child_id, flag_ohc, acad_year, grade_level_cd, math_kce_scale_score,
+                                                                          rdg_kce_scale_score))
+  
+  # melt test score data long to summarize
+  score_data_long <- melt.data.table(score_data_to_melt, id.vars = c("lf_child_id", "flag_ohc", "acad_year", "grade_level_cd"))
+  
+  # sort data
+  setorder(score_data_long, grade_level_cd, acad_year)
+  
+  # calc test stats by grade and acad yr
+  a_kce_stats <- score_data_long[!is.na(value), list(n_obs = length(value),
+                                                     min = min(value),
+                                                     q25 = quantile(value, .25),
+                                                     q50 = quantile(value, .5),
+                                                     q75 = quantile(value, .75),
+                                                     max = max(value),
+                                                     mean = round(mean(value), 3),
+                                                     var = round(var(value), 3),
+                                                     sd = round(sd(value), 3)), 
+                                 by = c("grade_level_cd", "acad_year", "variable")]
+  
+  # subset to vars for standardization
+  sub_kce_stats <- subset(a_kce_stats, select = c(grade_level_cd, acad_year, variable, mean, sd))
+  
+  # cast wide by academic year
+  kce_standardize <- data.table::dcast(sub_kce_stats, grade_level_cd + acad_year ~ variable, value.var = c("mean", "sd"))
+  
+  # merge back with main set
+  acad_yr_data <- ea_merge(acad_yr_data, kce_standardize, c("grade_level_cd", "acad_year"))
+  
+  # create z-scored scores
+  acad_yr_data[, zscore_math_kce := (math_kce_scale_score - mean_math_kce_scale_score) / sd_math_kce_scale_score]
+  acad_yr_data[, zscore_rdg_kce := (rdg_kce_scale_score - mean_rdg_kce_scale_score) / sd_rdg_kce_scale_score]
+
 ##################################
 # calculate overall demographics #
 ##################################
@@ -141,9 +196,6 @@
 # produce demo summary tables by acad yr #
 ##########################################
   
-  # copy acad year info
-  acad_yr_data <- copy(in_acad_year_data)
-  
   # change necessary vars to numeric
   acad_yr_data[, c("n_plcmt_tot", "tot_plcmt_days", "tot_plcmt_days_acad", "n_plcmt_acad")] <- 
     lapply(acad_yr_data[, c("n_plcmt_tot", "tot_plcmt_days", "tot_plcmt_days_acad", "n_plcmt_acad"), with = FALSE], as.numeric)
@@ -188,11 +240,26 @@
 # produce acad outcome summary tables #
 ####################################### 
   
-  
-  # subset to data for melt
-  sub_ohc_acad_yr <- subset(acad_yr_data, flag_ohc_yr == 1, select = c(lf_child_id, acad_year, removal_date, ohc_days_tot, num_plcmt_tot, 
-                                                                       plcmt_days_tot, num_plcmt_acad_yr, plcmt_days_acad_year))
-  
+  # calc acad outcomes, ohc and not
+  a_acad_outcomes_compare <- acad_yr_data[flag_dpi_yr == 1, list(n_obs = .N,
+                                                                 avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
+                                                                 avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
+                                                                 avg_incidents = round(mean(incidents_os, na.rm = TRUE), 3),
+                                                                 avg_math_kce = round(mean(math_kce_scale_score, na.rm = TRUE), 3),
+                                                                 avg_rdg_kce = round(mean(rdg_kce_scale_score, na.rm = TRUE), 3)),
+                                          by = flag_ohc]
+                                           
+                                           
+                                           
+                                           per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
+                                           per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
+                                           per_white = round(mean(d_race_white, na.rm = TRUE), 3),
+                                           per_black = round(mean(d_race_black, na.rm = TRUE), 3),
+                                           per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
+                                           per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
+                                           per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
+                                    by = flag_ohc]
+
 
 #####################
 # plot summary info #
@@ -281,10 +348,6 @@
     ea_write(a_plcmt_by_yr, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/acad_plcmt_stats_by_yr.csv")
 
     
-    
-    ea_write(a_summ_overall, "X:/LFS-Education Outcomes/qc/summary_stats_ohc_overall_by_yr.csv")
-    ea_write(a_summ_acad, "X:/LFS-Education Outcomes/qc/summary_stats_acad.csv")
-    ea_write(a_summ_acad_by_yr, "X:/LFS-Education Outcomes/qc/summary_stats_acad_by_yr.csv")
 
     ggsave("X:/LFS-Education Outcomes/qc/hist_ohc_days_overall.png", plot = plot_hist_ohc_days, width = p_width, height = p_height, units = "cm")
     ggsave("X:/LFS-Education Outcomes/qc/hist_plcmts_overall.png", plot = plot_hist_ohc_plcmts, width = p_width, height = p_height, units = "cm")
