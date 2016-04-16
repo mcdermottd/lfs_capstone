@@ -73,6 +73,18 @@
                                            per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
                                     by = flag_ohc]
   
+  # calc overall demo, by ohc and frl statues
+  a_demo_compare_frl <- child_demo_data[!is.na(d_frl), list(n_obs = .N,
+                                                             per_male = round(mean(d_male, na.rm = TRUE), 3),
+                                                             per_elp = round(mean(d_elp, na.rm = TRUE), 3),
+                                                             per_sped = round(mean(d_sped, na.rm = TRUE), 3),
+                                                             per_white = round(mean(d_race_white, na.rm = TRUE), 3),
+                                                             per_black = round(mean(d_race_black, na.rm = TRUE), 3),
+                                                             per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
+                                                             per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
+                                                             per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
+                                        by = c("flag_ohc", "d_frl")]
+  
 ######################
 # summarize ohc data #
 ######################
@@ -124,19 +136,20 @@
                                                                       var = round(var(value), 2),
                                                                       sd = round(sd(value), 2)),
                                    by = c("variable", "d_race_white")]
-  
-#####################################
-# produce summary tables by acad yr #
-#####################################
+
+##########################################
+# produce demo summary tables by acad yr #
+##########################################
   
   # copy acad year info
   acad_yr_data <- copy(in_acad_year_data)
   
   # change necessary vars to numeric
-  acad_yr_data[, c("tot_plcmt_days_acad", "n_plcmt_acad")] <- lapply(acad_yr_data[, c("tot_plcmt_days_acad", "n_plcmt_acad"), 
-                                                                                  with = FALSE], as.numeric)
+  acad_yr_data[, c("n_plcmt_tot", "tot_plcmt_days", "tot_plcmt_days_acad", "n_plcmt_acad")] <- 
+    lapply(acad_yr_data[, c("n_plcmt_tot", "tot_plcmt_days", "tot_plcmt_days_acad", "n_plcmt_acad"), with = FALSE], as.numeric)
 
-  # create avg days per placement var
+  # create avg days per placement vars
+  acad_yr_data[, avg_days_per_plcmt := tot_plcmt_days / n_plcmt_tot]
   acad_yr_data[, avg_days_plcmt_acad := tot_plcmt_days_acad / n_plcmt_acad]
   
   # sort by academic year
@@ -151,9 +164,9 @@
                                                    per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
                                                    per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
                                                    per_white = round(mean(d_race_white, na.rm = TRUE), 3),
-                                                   avg_plcmt = round(mean(n_plcmt_acad), 3),
-                                                   avg_plcmt_days = round(mean(tot_plcmt_days_acad), 3),
-                                                   avg_plcmt_length = round(mean(avg_days_plcmt_acad), 3)), 
+                                                   avg_plcmt = round(mean(n_plcmt_tot), 3),
+                                                   avg_plcmt_days = round(mean(tot_plcmt_days), 3),
+                                                   avg_plcmt_length = round(mean(avg_days_per_plcmt), 3)), 
                               by = acad_year]
   
   # calc stats of ohc placements by year
@@ -171,51 +184,15 @@
                                 by = acad_year]
   
   
+#######################################
+# produce acad outcome summary tables #
+####################################### 
   
   
   # subset to data for melt
   sub_ohc_acad_yr <- subset(acad_yr_data, flag_ohc_yr == 1, select = c(lf_child_id, acad_year, removal_date, ohc_days_tot, num_plcmt_tot, 
                                                                        plcmt_days_tot, num_plcmt_acad_yr, plcmt_days_acad_year))
   
-  # create avg days per placement var
-  sub_ohc_acad_yr[, avg_days_per_plcmt := plcmt_days_acad_year / num_plcmt_acad_yr]
-  
-  # change removal date to removal year
-  sub_ohc_acad_yr[, removal_date := as.numeric(year(removal_date))]
-
-  # melt ohc data long to summarize
-  long_data_acad <- melt.data.table(sub_ohc_acad_yr, id.vars = c("child_id", "acad_year"))
-  
-  # subset to only acad year vars
-  sub_long_data_acad <- subset(long_data_acad, 
-                               variable == "num_plcmt_acad_yr" | variable == "plcmt_days_acad_year" | variable == "avg_days_per_plcmt")
-  
-  # calc acad yr stats overall
-  a_summ_acad <- sub_long_data_acad[!is.na(value), list(n_obs = length(value),
-                                                       min = min(value),
-                                                       q25 = quantile(value, .25),
-                                                       q50 = quantile(value, .5),
-                                                       q75 = quantile(value, .75),
-                                                       max = max(value),
-                                                       mean = round(mean(value), 2),
-                                                       var = round(var(value), 2),
-                                                       sd = round(sd(value), 2)), 
-                                    by = c("variable")]
-  
-  # sort by variable, removal year
-  setorder(long_data_acad, variable, acad_year)
-
-  # calc ohc stats by acad year
-  a_summ_acad_by_yr <- long_data_acad[!is.na(value), list(n_obs = length(value),
-                                                           min = min(value),
-                                                           q25 = quantile(value, .25),
-                                                           q50 = quantile(value, .5),
-                                                           q75 = quantile(value, .75),
-                                                           max = max(value),
-                                                           mean = round(mean(value), 2),
-                                                           var = round(var(value), 2),
-                                                           sd = round(sd(value), 2)), 
-                                      by = c("variable", "acad_year")]
 
 #####################
 # plot summary info #
@@ -295,7 +272,16 @@
   # export
   if (p_opt_exp == 1) { 
     
-    ea_write(a_summ_overall, "X:/LFS-Education Outcomes/qc/summary_stats_ohc_overall.csv")
+    ea_write(a_demo_overall, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/overall_demo.csv")
+    ea_write(a_demo_compare, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/overall_demo_compare.csv")
+    ea_write(a_demo_compare_frl, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/overall_demo_compare_frl.csv")
+
+    ea_write(a_ohc_overall, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/ohc_stats_overall.csv")
+    ea_write(a_ohc_by_yr, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/ohc_stats_overall_by_yr.csv")
+    ea_write(a_plcmt_by_yr, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/acad_plcmt_stats_by_yr.csv")
+
+    
+    
     ea_write(a_summ_overall, "X:/LFS-Education Outcomes/qc/summary_stats_ohc_overall_by_yr.csv")
     ea_write(a_summ_acad, "X:/LFS-Education Outcomes/qc/summary_stats_acad.csv")
     ea_write(a_summ_acad_by_yr, "X:/LFS-Education Outcomes/qc/summary_stats_acad_by_yr.csv")
