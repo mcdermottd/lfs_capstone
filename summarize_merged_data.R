@@ -240,25 +240,29 @@
 # produce acad outcome summary tables #
 ####################################### 
   
-  # calc acad outcomes, ohc and not
-  a_acad_outcomes_compare <- acad_yr_data[flag_dpi_yr == 1, list(n_obs = .N,
-                                                                 avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
-                                                                 avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
-                                                                 avg_incidents = round(mean(incidents_os, na.rm = TRUE), 3),
-                                                                 avg_math_kce = round(mean(math_kce_scale_score, na.rm = TRUE), 3),
-                                                                 avg_rdg_kce = round(mean(rdg_kce_scale_score, na.rm = TRUE), 3)),
-                                          by = flag_ohc]
+  # calc acad outcomes, by ohc status
+  a_acad_outcomes <- acad_yr_data[flag_dpi_yr == 1, list(n_obs = .N,
+                                                         avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
+                                                         avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
+                                                         avg_incidents = round(mean(incidents_os, na.rm = TRUE), 3),
+                                                         avg_math_kce = round(mean(zscore_math_kce, na.rm = TRUE), 3),
+                                                         sd_math_kce = round(sd(zscore_math_kce, na.rm = TRUE), 3),
+                                                         avg_rdg_kce = round(mean(zscore_rdg_kce, na.rm = TRUE), 3),
+                                                         sd_rdg_kce = round(sd(zscore_math_kce, na.rm = TRUE), 3)),
+                                  by = flag_ohc]
+  
+  # calc acad outcomes, by ohc status, grade
+  a_acad_outcomes_by_grd <- acad_yr_data[flag_dpi_yr == 1, list(n_obs = .N,
+                                                               avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
+                                                               avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
+                                                               avg_incidents = round(mean(incidents_os, na.rm = TRUE), 3),
+                                                               avg_math_kce = round(mean(zscore_math_kce, na.rm = TRUE), 3),
+                                                               sd_math_kce = round(sd(zscore_math_kce, na.rm = TRUE), 3),
+                                                               avg_rdg_kce = round(mean(zscore_rdg_kce, na.rm = TRUE), 3),
+                                                               sd_rdg_kce = round(sd(zscore_math_kce, na.rm = TRUE), 3)),
+                                          by = c("flag_ohc", "grade_level_cd")]
                                            
-                                           
-                                           
-                                           per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
-                                           per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
-                                           per_white = round(mean(d_race_white, na.rm = TRUE), 3),
-                                           per_black = round(mean(d_race_black, na.rm = TRUE), 3),
-                                           per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
-                                           per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
-                                           per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
-                                    by = flag_ohc]
+
 
 
 #####################
@@ -344,8 +348,15 @@
     ea_write(a_demo_compare_frl, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/overall_demo_compare_frl.csv")
 
     ea_write(a_ohc_overall, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/ohc_stats_overall.csv")
+    ea_write(a_ohc_by_gender, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/ohc_stats_by_gender.csv")
+    ea_write(a_ohc_by_race, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/ohc_stats_by_race.csv")
+
     ea_write(a_ohc_by_yr, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/ohc_stats_overall_by_yr.csv")
     ea_write(a_plcmt_by_yr, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/acad_plcmt_stats_by_yr.csv")
+    
+    ea_write(a_acad_outcomes, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/acad_outcomes_overall.csv")
+    ea_write(a_acad_outcomes_by_grd, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/acad_outcomes_by_grd.csv")
+
 
     
 
