@@ -356,6 +356,8 @@
   # export
   if (p_opt_exp == 1) { 
     
+    ea_write(hs_student_ids, "X:/LFS-Education Outcomes/qc/hs_student_ids.csv")
+
     ea_write(a_demo_overall, paste0(p_dir_out, "demo_overall.csv"))
     ea_write(a_demo_compare, paste0(p_dir_out, "demo_by_ohc.csv"))
     ea_write(a_demo_compare_frl, paste0(p_dir_out, "demo_by_ohc_frl.csv"))
