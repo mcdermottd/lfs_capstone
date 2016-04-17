@@ -37,61 +37,6 @@
   # load acad year info
   in_acad_year_data <- ea_load("X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_full.rdata")
 
-#########################
-# format acad year data #
-#########################
-  
-  # copy acad year info
-  acad_yr_data <- copy(in_acad_year_data)
-  
-  # set missing ohc flags to 1
-  acad_yr_data[is.na(flag_ohc), flag_ohc := 1]
-  
-  # create additional flag when acad outcomes are missing
-  acad_yr_data[, flag_dpi_yr := ifelse(!is.na(lds_student_key), 1, 0)]
-  
-  # reorder vars
-  ea_colorder(acad_yr_data, c("lf_child_id", "lds_student_key", "child_id", "flag_ohc", "flag_ohc_yr", "flag_dpi_yr"))
-  
-###########################
-# standardize test scores #
-###########################
-  
-  # subset to necessary vars for melt
-  score_data_to_melt <- subset(acad_yr_data, flag_dpi_yr == 1, select = c(lf_child_id, flag_ohc, acad_year, grade_level_cd, math_kce_scale_score,
-                                                                          rdg_kce_scale_score))
-  
-  # melt test score data long to summarize
-  score_data_long <- melt.data.table(score_data_to_melt, id.vars = c("lf_child_id", "flag_ohc", "acad_year", "grade_level_cd"))
-  
-  # sort data
-  setorder(score_data_long, grade_level_cd, acad_year)
-  
-  # calc test stats by grade and acad yr
-  a_kce_stats <- score_data_long[!is.na(value), list(n_obs = length(value),
-                                                     min = min(value),
-                                                     q25 = quantile(value, .25),
-                                                     q50 = quantile(value, .5),
-                                                     q75 = quantile(value, .75),
-                                                     max = max(value),
-                                                     mean = round(mean(value), 3),
-                                                     var = round(var(value), 3),
-                                                     sd = round(sd(value), 3)), 
-                                 by = c("grade_level_cd", "acad_year", "variable")]
-  
-  # subset to vars for standardization
-  sub_kce_stats <- subset(a_kce_stats, select = c(grade_level_cd, acad_year, variable, mean, sd))
-  
-  # cast wide by academic year
-  kce_standardize <- data.table::dcast(sub_kce_stats, grade_level_cd + acad_year ~ variable, value.var = c("mean", "sd"))
-  
-  # merge back with main set
-  acad_yr_data <- ea_merge(acad_yr_data, kce_standardize, c("grade_level_cd", "acad_year"))
-  
-  # create z-scored scores
-  acad_yr_data[, zscore_math_kce := (math_kce_scale_score - mean_math_kce_scale_score) / sd_math_kce_scale_score]
-  acad_yr_data[, zscore_rdg_kce := (rdg_kce_scale_score - mean_rdg_kce_scale_score) / sd_rdg_kce_scale_score]
-
 ##################################
 # calculate overall demographics #
 ##################################
@@ -195,6 +140,9 @@
 ##########################################
 # produce demo summary tables by acad yr #
 ##########################################
+  
+  # copy acad year info
+  acad_yr_data <- copy(in_acad_year_data)
   
   # change necessary vars to numeric
   acad_yr_data[, c("n_plcmt_tot", "tot_plcmt_days", "tot_plcmt_days_acad", "n_plcmt_acad")] <- 
