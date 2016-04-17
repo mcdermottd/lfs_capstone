@@ -183,6 +183,10 @@
                                                        avg_plcmt_length = round(mean(avg_days_plcmt_acad), 3)), 
                                 by = acad_year]
 
+#######################################
+# examine placement type and location #
+#######################################
+
   # calc stats of ohc placements by plcmt type
   a_plcmt_by_type <- acad_yr_data[flag_ohc_yr == 1, list(n_obs = .N,
                                                              avg_age = round(mean(age_in_years_cd, na.rm = TRUE), 3),
@@ -211,53 +215,11 @@
                                                            avg_plcmt_length = round(mean(avg_days_plcmt_acad), 3)), 
                                     by = region]
   
-#######################################
-# examine placement type and location #
-#######################################
-  
-  # freq of placement type 
-  a_plcmt_type <- ea_table(subset(acad_yr_data, flag_ohc_yr == 1), c("dcf_plcmt_type"), opt_percent = 1)
-  
   # freq of placement type by year
   a_plcmt_type_yr <- ea_table(subset(acad_yr_data, flag_ohc_yr == 1), c("dcf_plcmt_type", "acad_year"))
 
-  # freq of placement region
-  a_plcmt_region <- ea_table(subset(acad_yr_data, flag_ohc_yr == 1), c("region"), opt_percent = 1)
-
   # freq of placement region by year
   a_plcmt_region_yr <- ea_table(subset(acad_yr_data, flag_ohc_yr == 1), c("region", "acad_year"))
-  
-#######################################
-# produce acad outcome summary tables #
-####################################### 
-  
-  # calc acad outcomes, by ohc status
-  a_acad_outcomes <- acad_yr_data[flag_dpi_yr == 1, list(n_obs = .N,
-                                                         avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
-                                                         avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
-                                                         avg_incidents = round(mean(incidents_os, na.rm = TRUE), 3),
-                                                         avg_math_kce = round(mean(zscore_math_kce, na.rm = TRUE), 3),
-                                                         sd_math_kce = round(sd(zscore_math_kce, na.rm = TRUE), 3),
-                                                         avg_rdg_kce = round(mean(zscore_rdg_kce, na.rm = TRUE), 3),
-                                                         sd_rdg_kce = round(sd(zscore_math_kce, na.rm = TRUE), 3)),
-                                  by = flag_ohc]
-  
-  # sort by grade
-  setorder(acad_yr_data, grade_level_cd, flag_ohc)
-  
-  # calc acad outcomes, by ohc status, grade
-  a_acad_outcomes_by_grd <- acad_yr_data[flag_dpi_yr == 1, list(n_obs = .N,
-                                                               avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
-                                                               avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
-                                                               avg_incidents = round(mean(incidents_os, na.rm = TRUE), 3),
-                                                               avg_math_kce = round(mean(zscore_math_kce, na.rm = TRUE), 3),
-                                                               sd_math_kce = round(sd(zscore_math_kce, na.rm = TRUE), 3),
-                                                               avg_rdg_kce = round(mean(zscore_rdg_kce, na.rm = TRUE), 3),
-                                                               sd_rdg_kce = round(sd(zscore_math_kce, na.rm = TRUE), 3)),
-                                          by = c("flag_ohc", "grade_level_cd")]
-                                           
-
-
 
 #####################
 # plot summary info #
@@ -326,10 +288,7 @@
 #####################
 # format and export #
 #####################
-  
-  # sort output set
-  setorder(a_summ_acad_by_yr, acad_year, variable)
-  
+
   # set height and width of plots
   p_height <- 28
   p_width <- 28
@@ -347,18 +306,11 @@
 
     ea_write(a_ohc_by_yr, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/ohc_overall_by_yr.csv")
     ea_write(a_plcmt_by_yr, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/plcmts_by_yr.csv")
+    
     ea_write(a_plcmt_by_type, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/plcmts_by_type.csv")
     ea_write(a_plcmt_by_region, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/plcmts_by_region.csv")
-
-    ea_write(a_plcmt_type, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/freq_plcmt_type_overall.csv")
     ea_write(a_plcmt_type_yr, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/freq_plcmt_type_by_yr.csv")
-    ea_write(a_plcmt_region, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/freq_plcmt_region_overall.csv")
     ea_write(a_plcmt_region_yr, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/freq_plcmt_region_by_yr.csv")
-        
-    ea_write(a_acad_outcomes, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/acad_outcomes_overall.csv")
-    ea_write(a_acad_outcomes_by_grd, "X:/LFS-Education Outcomes/qc/second_draft_exhibits/acad_outcomes_by_grd.csv")
-
-
     
 
     ggsave("X:/LFS-Education Outcomes/qc/hist_ohc_days_overall.png", plot = plot_hist_ohc_days, width = p_width, height = p_height, units = "cm")
