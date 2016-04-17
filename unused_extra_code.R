@@ -1,7 +1,8 @@
 
-##############################################
-# intial format and remove duplicate entries #
-##############################################
+
+###############################################
+# initial format and remove duplicate entries #
+###############################################
   
   # create list of vars to check on duplicates
   vars_dup <- colnames(sub_ohc_data)
@@ -21,8 +22,6 @@
   # remove additional duplicates ignoring discharge vars #brule
   sub_ohc_data <- ea_no_dups(sub_ohc_data, vars_dup)
    
-  
-  
 ################################
 # create additional child vars #
 ################################
@@ -51,18 +50,10 @@
   stacked_set[, flag_disability := 0]
   stacked_set[child_disability == "Y", flag_disability := 1]
 
+#####################################
+# fill in missing placement regions #
+#####################################
 
-
-
-  
-  # create placement type dummies
-  stacked_set[, c("flag_fhome_rel", "flag_fhome_nrel", "flag_ghome", "flag_rcc", "flag_plcmt_other") := 0]
-  stacked_set[dcf_plcmt_type == "Foster Home (Relative)", flag_fhome_rel := 1]
-  stacked_set[dcf_plcmt_type == "Foster Home (Non-Relative)", flag_fhome_nrel := 1]
-  stacked_set[dcf_plcmt_type == "Group Home", flag_ghome := 1]
-  stacked_set[dcf_plcmt_type == "RCC", flag_rcc := 1]
-  stacked_set[is.na(dcf_plcmt_type), flag_plcmt_other := 1]
-  
   # create region strings
   p_reg_nc <- c("Vilas", "Oneida", "Forest", "Lincoln", "Langlade", "Marathon", "Wood", "Portage", "Adams")
   p_reg_ne <- c("Florence", "Marinette", "Menominee", "Oconto", "Shawano", "Waupaca", "Outagamie", "Brown", "Kewaunee", "Door", "Waushara", 
@@ -82,7 +73,19 @@
   stacked_set[is.na(region) & provider_county %in% p_reg_s, region := "South"]
   stacked_set[is.na(region) & provider_county %in% p_reg_w, region := "West"]
   stacked_set[is.na(region) & provider_county == "Milwaukee", region := "Milwaukee"]
-
+  
+#########################################
+# create placement dummies for analysis #
+#########################################
+  
+  # create placement type dummies
+  stacked_set[, c("flag_fhome_rel", "flag_fhome_nrel", "flag_ghome", "flag_rcc", "flag_plcmt_other") := 0]
+  stacked_set[dcf_plcmt_type == "Foster Home (Relative)", flag_fhome_rel := 1]
+  stacked_set[dcf_plcmt_type == "Foster Home (Non-Relative)", flag_fhome_nrel := 1]
+  stacked_set[dcf_plcmt_type == "Group Home", flag_ghome := 1]
+  stacked_set[dcf_plcmt_type == "RCC", flag_rcc := 1]
+  stacked_set[is.na(dcf_plcmt_type), flag_plcmt_other := 1]
+  
   # create region dummies
   stacked_set[, c("flag_reg_mke", "flag_reg_nc", "flag_reg_ne", "flag_reg_nw", "flag_reg_s", "flag_reg_se", "flag_reg_w", "flag_reg_other") := 0]
   stacked_set[region == "Milwaukee", flag_reg_mke := 1]
