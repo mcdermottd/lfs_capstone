@@ -136,6 +136,47 @@
                                                            migrant_status_ind_cd, native_lang_code_cd, primary_disab_code_cd, race_eth_code_cd,
                                                            composite_eng_prof_lvl_cd, frl_cd, frl_ye, disab_cd, disab_ye)) 
 
+###########################
+# standardize test scores #
+###########################
+  
+  # subset to necessary vars for melt
+  score_data_to_melt <- subset(dpi_acad_info, select = c(lf_child_id, acad_year, grade_level_cd, math_kce_scale_score, rdg_kce_scale_score))
+  
+  # melt test score data long to summarize
+  score_data_long <- melt.data.table(score_data_to_melt, id.vars = c("lf_child_id", "acad_year", "grade_level_cd"))
+  
+  # sort data
+  setorder(score_data_long, grade_level_cd, acad_year)
+  
+  # calc test stats by grade and acad yr
+  a_kce_stats <- score_data_long[!is.na(value), list(n_obs = length(value),
+                                                     min = min(value),
+                                                     q25 = quantile(value, .25),
+                                                     q50 = quantile(value, .5),
+                                                     q75 = quantile(value, .75),
+                                                     max = max(value),
+                                                     mean = round(mean(value), 3),
+                                                     var = round(var(value), 3),
+                                                     sd = round(sd(value), 3)), 
+                                 by = c("grade_level_cd", "acad_year", "variable")]
+  
+  # subset to vars for standardization
+  sub_kce_stats <- subset(a_kce_stats, select = c(grade_level_cd, acad_year, variable, mean, sd))
+  
+  # cast wide by academic year
+  kce_standardize <- data.table::dcast(sub_kce_stats, grade_level_cd + acad_year ~ variable, value.var = c("mean", "sd"))
+  
+  # merge back with main set
+  dpi_acad_info <- ea_merge(dpi_acad_info, kce_standardize, c("grade_level_cd", "acad_year"), "x")
+  
+  # create z-scored scores
+  dpi_acad_info[, zscore_math_kce := (math_kce_scale_score - mean_math_kce_scale_score) / sd_math_kce_scale_score]
+  dpi_acad_info[, zscore_rdg_kce := (rdg_kce_scale_score - mean_rdg_kce_scale_score) / sd_rdg_kce_scale_score]
+  
+  # delete info for standardization
+  dpi_acad_info[, c("mean_math_kce_scale_score", "mean_rdg_kce_scale_score", "sd_math_kce_scale_score", "sd_rdg_kce_scale_score") := NULL]
+  
 #####################################
 # format ohc data to merge with dpi #
 #####################################
@@ -220,12 +261,16 @@
   # merge on placement data by academic year
   analysis_set <- ea_merge(dpi_ohc_acad, sub_ohc_acad, c("lf_child_id", "acad_year"))
 
-  # fill in NAs with 0 for flag_ohc_yr
+  # fill in missing OHC flags
+  analysis_set[is.na(flag_ohc), flag_ohc := 1]
   analysis_set[is.na(flag_ohc_yr), flag_ohc_yr := 0]
+  
+  # create additional flag when acad outcomes are missing
+  analysis_set[, flag_dpi_yr := ifelse(!is.na(lds_student_key), 1, 0)]
 
   # reorder variables
   ea_colorder(dpi_ohc_child_info, c("lf_child_id", "lds_student_key", "flag_ohc"))
-  ea_colorder(analysis_set, c("lf_child_id", "lds_student_key", "child_id", "flag_ohc", "flag_ohc_yr"))
+  ea_colorder(analysis_set, c("lf_child_id", "lds_student_key", "child_id", "flag_ohc", "flag_ohc_yr", "flag_dpi_yr"))
 
 ##########
 # export #
@@ -239,6 +284,9 @@
 
     ea_write(dpi_ohc_child_info, "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_child_info.csv")
     save(dpi_ohc_child_info, file = "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_child_info.rdata")
+    
+    ea_write(a_kce_stats, "X:/LFS-Education Outcomes/qc/kce_stats_by_grade.csv")
+    ea_write(kce_standardize, "X:/LFS-Education Outcomes/qc/zscore_statistics.csv")
     
     ea_write(ohc_ids_merge, "X:/LFS-Education Outcomes/qc/ohc_merged_ids.csv")
     ea_write(a_merge_stats, "X:/LFS-Education Outcomes/qc/ohc_merged_rates.csv")
