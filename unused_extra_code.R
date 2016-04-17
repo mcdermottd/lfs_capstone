@@ -97,4 +97,15 @@
   stacked_set[region == "West", flag_reg_w := 1]
   stacked_set[is.na(region), flag_reg_other := 1]
 
+#########
+# plots #
+#########
+  
+  # histogram - avg plcmt length in acad year, by academic year (15 day bins, <= 750 days)
+  plot_hist_avg_days_acad_byr <- ggplot(data = subset(sub_ohc_acad_yr, acad_year > 2007 & acad_year < 2013), aes(x = avg_days_per_plcmt)) + 
+                                         geom_histogram(binwidth = 10, colour = "black", fill = "dodgerblue4") +
+                                         labs(x = "Average Days Per Placement", y = "Number of Children", 
+                                              title = "Average Days Per Out of Home Care Placement Per Year \n - by Academic Year") + 
+                                         plot_attributes +
+                                         facet_wrap(~acad_year, ncol = 2)
 
