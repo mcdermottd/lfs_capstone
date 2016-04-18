@@ -24,7 +24,7 @@
 #############
 
   # output toggle
-  p_opt_exp <- 0
+  p_opt_exp <- 1
 
 #############
 # load data #
@@ -71,11 +71,14 @@
   # create frl / non-frl flags for comparison groups
   acad_yr_data[, compare_frl := ifelse(flag_ohc == 0 & d_frl == 1, 1, 0)]
 
-  # create flag if hs student
+  # create flag if hs student #brule
   acad_yr_data[, flag_hs := ifelse(grade_level_cd %in% c("08", "09", "10", "11", "12"), 1, 0)]
   
+  # subset to data with dpi records and with placement in year or comparison group
+  sub_acad_yr_data <- subset(acad_yr_data, flag_dpi_yr == 1 & !(flag_ohc == 1 & flag_ohc_yr == 0))
+  
   # create hs subset
-  acad_yr_data_hs <- subset(acad_yr_data, flag_hs == 1 & flag_dpi_yr == 1)
+  acad_yr_data_hs <- subset(sub_acad_yr_data, flag_hs == 1)
   
   # remove 2013 and 2014 academic years #brule
   acad_yr_data_hs <- subset(acad_yr_data_hs, acad_year != "2013" & acad_year != "2014")
@@ -85,9 +88,6 @@
   
   # remove duplicate ids, keeping latest academic year (with placement for ohc student) #brule
   latest_acad_yr_hs <- ea_no_dups(acad_yr_data_hs, "lf_child_id")
-  
-  # remove ohc students with no placement in hs
-  latest_acad_yr_hs <- subset(latest_acad_yr_hs, !(flag_ohc == 1 & flag_ohc_yr == 0))
 
 ############################
 # format school covariates #
@@ -135,10 +135,23 @@
 ##########################################
   
   # sort by grade
-  setorder(acad_yr_data, grade_level_cd, flag_ohc)
-  setorder(acad_yr_data_hs, grade_level_cd, flag_ohc)
+  setorder(sub_acad_yr_data, grade_level_cd, -flag_ohc)
 
-  # calc acad outcomes, by ohc status
+  # calc acad outcomes, by ohc status, grade
+  a_acad_outcomes_by_grd <- sub_acad_yr_data[, list(n_obs = .N,
+                                                     avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
+                                                     sd_atten = round(sd(att_rate_wi, na.rm = TRUE), 3),
+                                                     avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
+                                                     sd_remove = round(sd(days_removed_os, na.rm = TRUE), 3),
+                                                     avg_incidents = round(mean(incidents_os, na.rm = TRUE), 3),
+                                                     sd_incidents = round(sd(incidents_os, na.rm = TRUE), 3),
+                                                     avg_math_kce = round(mean(zscore_math_kce, na.rm = TRUE), 3),
+                                                     sd_math_kce = round(sd(zscore_math_kce, na.rm = TRUE), 3),
+                                                     avg_rdg_kce = round(mean(zscore_rdg_kce, na.rm = TRUE), 3),
+                                                     sd_rdg_kce = round(sd(zscore_rdg_kce, na.rm = TRUE), 3)),
+                                             by = c("flag_ohc", "grade_level_cd")]
+  
+  # calc HS acad outcomes, by ohc status
   a_acad_outcomes <- acad_yr_data_hs[, list(n_obs = .N,
                                              avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
                                              sd_atten = round(sd(att_rate_wi, na.rm = TRUE), 3),
@@ -152,48 +165,33 @@
                                              sd_rdg_kce = round(sd(zscore_rdg_kce, na.rm = TRUE), 3)),
                                      by = flag_ohc]
 
+  # calc HS acad outcomes, by ohc status, placement type
+  a_acad_outcomes_by_type <- acad_yr_data_hs[, list(n_obs = .N,
+                                                     avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
+                                                     sd_atten = round(sd(att_rate_wi, na.rm = TRUE), 3),
+                                                     avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
+                                                     sd_remove = round(sd(days_removed_os, na.rm = TRUE), 3),
+                                                     avg_incidents = round(mean(incidents_os, na.rm = TRUE), 3),
+                                                     sd_incidents = round(sd(incidents_os, na.rm = TRUE), 3),
+                                                     avg_math_kce = round(mean(zscore_math_kce, na.rm = TRUE), 3),
+                                                     sd_math_kce = round(sd(zscore_math_kce, na.rm = TRUE), 3),
+                                                     avg_rdg_kce = round(mean(zscore_rdg_kce, na.rm = TRUE), 3),
+                                                     sd_rdg_kce = round(sd(zscore_rdg_kce, na.rm = TRUE), 3)),
+                                             by = c("flag_ohc", "dcf_plcmt_type")]
   
-  # calc acad outcomes, by ohc status, grade
-  a_acad_outcomes_by_grd <- acad_yr_data[flag_dpi_yr == 1, list(n_obs = .N,
-                                                               avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
-                                                               sd_atten = round(sd(att_rate_wi, na.rm = TRUE), 3),
-                                                               avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
-                                                               sd_remove = round(sd(days_removed_os, na.rm = TRUE), 3),
-                                                               avg_incidents = round(mean(incidents_os, na.rm = TRUE), 3),
-                                                               sd_incidents = round(sd(incidents_os, na.rm = TRUE), 3),
-                                                               avg_math_kce = round(mean(zscore_math_kce, na.rm = TRUE), 3),
-                                                               sd_math_kce = round(sd(zscore_math_kce, na.rm = TRUE), 3),
-                                                               avg_rdg_kce = round(mean(zscore_rdg_kce, na.rm = TRUE), 3),
-                                                               sd_rdg_kce = round(sd(zscore_rdg_kce, na.rm = TRUE), 3)),
-                                          by = c("flag_ohc", "grade_level_cd")]
-
-  # calc acad outcomes, by ohc status, placement type
-  a_acad_outcomes_by_type <- acad_yr_data_hs[flag_dpi_yr == 1, list(n_obs = .N,
-                                                               avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
-                                                               sd_atten = round(sd(att_rate_wi, na.rm = TRUE), 3),
-                                                               avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
-                                                               sd_remove = round(sd(days_removed_os, na.rm = TRUE), 3),
-                                                               avg_incidents = round(mean(incidents_os, na.rm = TRUE), 3),
-                                                               sd_incidents = round(sd(incidents_os, na.rm = TRUE), 3),
-                                                               avg_math_kce = round(mean(zscore_math_kce, na.rm = TRUE), 3),
-                                                               sd_math_kce = round(sd(zscore_math_kce, na.rm = TRUE), 3),
-                                                               avg_rdg_kce = round(mean(zscore_rdg_kce, na.rm = TRUE), 3),
-                                                               sd_rdg_kce = round(sd(zscore_rdg_kce, na.rm = TRUE), 3)),
-                                          by = c("flag_ohc", "dcf_plcmt_type")]
-  
-  # calc acad outcomes, by ohc status, region
-  a_acad_outcomes_by_region <- acad_yr_data_hs[flag_dpi_yr == 1, list(n_obs = .N,
-                                                                   avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
-                                                                   sd_atten = round(sd(att_rate_wi, na.rm = TRUE), 3),
-                                                                   avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
-                                                                   sd_remove = round(sd(days_removed_os, na.rm = TRUE), 3),
-                                                                   avg_incidents = round(mean(incidents_os, na.rm = TRUE), 3),
-                                                                   sd_incidents = round(sd(incidents_os, na.rm = TRUE), 3),
-                                                                   avg_math_kce = round(mean(zscore_math_kce, na.rm = TRUE), 3),
-                                                                   sd_math_kce = round(sd(zscore_math_kce, na.rm = TRUE), 3),
-                                                                   avg_rdg_kce = round(mean(zscore_rdg_kce, na.rm = TRUE), 3),
-                                                                   sd_rdg_kce = round(sd(zscore_rdg_kce, na.rm = TRUE), 3)),
-                                            by = c("flag_ohc", "region")]
+  # calc HS acad outcomes, by ohc status, region
+  a_acad_outcomes_by_region <- acad_yr_data_hs[, list(n_obs = .N,
+                                                       avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
+                                                       sd_atten = round(sd(att_rate_wi, na.rm = TRUE), 3),
+                                                       avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
+                                                       sd_remove = round(sd(days_removed_os, na.rm = TRUE), 3),
+                                                       avg_incidents = round(mean(incidents_os, na.rm = TRUE), 3),
+                                                       sd_incidents = round(sd(incidents_os, na.rm = TRUE), 3),
+                                                       avg_math_kce = round(mean(zscore_math_kce, na.rm = TRUE), 3),
+                                                       sd_math_kce = round(sd(zscore_math_kce, na.rm = TRUE), 3),
+                                                       avg_rdg_kce = round(mean(zscore_rdg_kce, na.rm = TRUE), 3),
+                                                       sd_rdg_kce = round(sd(zscore_rdg_kce, na.rm = TRUE), 3)),
+                                               by = c("flag_ohc", "region")]
   
 ############################
 # regressions - attendence #
