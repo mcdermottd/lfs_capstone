@@ -18,14 +18,13 @@
   # load packages
   library(ggplot2)
   library(data.table)
-  library(eaanalysis)
 
 #############
 # set parms #
 #############
 
   # output toggle
-  p_opt_exp <- 0
+  p_opt_exp <- 1
 
 #############
 # load data #
@@ -68,8 +67,11 @@
   # create flag if hs student
   acad_yr_data[, flag_hs := ifelse(grade_level_cd %in% c("08", "09", "10", "11", "12"), 1, 0)]
   
+  # create hs subset
+  acad_yr_data_hs <- subset(acad_yr_data, flag_hs == 1)
+  
   # subset to high school students (8th - 12th grades)
-  hs_student_ids <- subset(acad_yr_data, flag_hs == 1, select = c(lf_child_id, flag_hs))
+  hs_student_ids <- subset(acad_yr_data_hs, select = c(lf_child_id, flag_hs))
   
   # remove dups based on id
   hs_student_ids <- ea_no_dups(hs_student_ids, "lf_child_id")
@@ -79,10 +81,10 @@
   
   # fill in missing flags
   child_demo_data[is.na(flag_hs), flag_hs := 0]
-  
-  # create hs subsets
+
+  # hs subset of child demo set  
   child_demo_data_hs <- subset(child_demo_data, flag_hs == 1)
-  acad_yr_data_hs <- subset(acad_yr_data, flag_hs == 1)
+
 
 ################################
 # examine overall demographics #
@@ -236,7 +238,7 @@
                                                              per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
                                                              per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
                                                              per_white = round(mean(d_race_white, na.rm = TRUE), 3),
-                                                             avg_plcmt = round(mean(n_plcmt_acad), 3),
+                                                             avg_plcmts = round(mean(n_plcmt_acad), 3),
                                                              avg_plcmt_days = round(mean(tot_plcmt_days_acad), 3),
                                                              avg_plcmt_length = round(mean(avg_days_plcmt_acad), 3)), 
                                       by = acad_year]
@@ -254,7 +256,7 @@
                                                              per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
                                                              per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
                                                              per_white = round(mean(d_race_white, na.rm = TRUE), 3),
-                                                             avg_plcmt = round(mean(n_plcmt_acad), 3),
+                                                             avg_plcmts = round(mean(n_plcmt_acad), 3),
                                                              avg_plcmt_days = round(mean(tot_plcmt_days_acad), 3),
                                                              avg_plcmt_length = round(mean(avg_days_plcmt_acad), 3)), 
                                      by = dcf_plcmt_type]
@@ -268,7 +270,7 @@
                                                                  per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
                                                                  per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
                                                                  per_white = round(mean(d_race_white, na.rm = TRUE), 3),
-                                                                 avg_plcmt = round(mean(n_plcmt_acad), 3),
+                                                                 avg_plcmts = round(mean(n_plcmt_acad), 3),
                                                                  avg_plcmt_days = round(mean(tot_plcmt_days_acad), 3),
                                                                  avg_plcmt_length = round(mean(avg_days_plcmt_acad), 3)), 
                                           by = region]
@@ -310,7 +312,7 @@
   plot_hist_avg_days_plcmt_hs <- ggplot(data = subset(child_demo_data_hs, flag_ohc == 1 & avg_days_plcmt <= 750), aes(x = avg_days_plcmt)) + 
                                          geom_histogram(binwidth = 15, colour = "black", fill = "dodgerblue4") +
                                          labs(x = "Days Per Placement", y = "Number of Children", 
-                                              title = "Average Days Per Out-of-Home Care Placement - Overall") + 
+                                              title = "Average Length of Out-of-Home Care Placement - Overall") + 
                                          plot_attributes
 
 ####################################
