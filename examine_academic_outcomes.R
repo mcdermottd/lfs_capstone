@@ -16,7 +16,6 @@
   ea_start()
 
   # load packages
-  library(broom)
   library(stargazer)
   library(data.table)
 
@@ -25,7 +24,7 @@
 #############
 
   # output toggle
-  p_opt_exp <- 1
+  p_opt_exp <- 0
 
 #############
 # load data #
@@ -107,17 +106,17 @@
                     sch_acctbl_code_cd = as.numeric(schid), acad_year = as.character(year))]
   
   # subset to covariates
-  school_covary <- subset(school_att, select = c(acad_year, dist_acctbl_code_cd, sch_acctbl_code_cd, per_sch_frl, per_sch_sped, per_sch_elp, 
+  school_covar <- subset(school_att, select = c(acad_year, dist_acctbl_code_cd, sch_acctbl_code_cd, per_sch_frl, per_sch_sped, per_sch_elp, 
                                                  per_sch_non_white, per_sch_removal, mean_math_z_score, mean_rdg_z_score))
   
   # rename vars for merge
-  setnames(school_covary, c("mean_math_z_score", "mean_rdg_z_score"), c("sch_mean_math_z_score", "sch_mean_rdg_z_score"))
+  setnames(school_covar, c("mean_math_z_score", "mean_rdg_z_score"), c("sch_mean_math_z_score", "sch_mean_rdg_z_score"))
 
   # melt school covariates long to summarize
-  school_covary_long <- melt.data.table(school_covary, id.vars = c("acad_year", "dist_acctbl_code_cd", "sch_acctbl_code_cd"))
+  school_covar_long <- melt.data.table(school_covar, id.vars = c("acad_year", "dist_acctbl_code_cd", "sch_acctbl_code_cd"))
 
   # calc stats for school covariates
-  a_summ_sch_covariates <- school_covary_long[!is.na(value), list(n_obs = length(value),
+  a_summ_sch_covariates <- school_covar_long[!is.na(value), list(n_obs = length(value),
                                                                    min = min(value),
                                                                    q25 = quantile(value, .25),
                                                                    q50 = quantile(value, .5),
@@ -129,7 +128,7 @@
                                               by = c("variable")]
 
   # merge with latest year set
-  regression_set <- ea_merge(latest_acad_yr_hs, school_covary, c("acad_year", "dist_acctbl_code_cd", "sch_acctbl_code_cd"), "x")
+  regression_set <- ea_merge(latest_acad_yr_hs, school_covar, c("acad_year", "dist_acctbl_code_cd", "sch_acctbl_code_cd"), "x")
   
 ##########################################
 # examine acad outcomes - summary tables #
@@ -167,6 +166,35 @@
                                                                avg_rdg_kce = round(mean(zscore_rdg_kce, na.rm = TRUE), 3),
                                                                sd_rdg_kce = round(sd(zscore_rdg_kce, na.rm = TRUE), 3)),
                                           by = c("flag_ohc", "grade_level_cd")]
+
+  # calc acad outcomes, by ohc status, placement type
+  a_acad_outcomes_by_type <- acad_yr_data_hs[flag_dpi_yr == 1, list(n_obs = .N,
+                                                               avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
+                                                               sd_atten = round(sd(att_rate_wi, na.rm = TRUE), 3),
+                                                               avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
+                                                               sd_remove = round(sd(days_removed_os, na.rm = TRUE), 3),
+                                                               avg_incidents = round(mean(incidents_os, na.rm = TRUE), 3),
+                                                               sd_incidents = round(sd(incidents_os, na.rm = TRUE), 3),
+                                                               avg_math_kce = round(mean(zscore_math_kce, na.rm = TRUE), 3),
+                                                               sd_math_kce = round(sd(zscore_math_kce, na.rm = TRUE), 3),
+                                                               avg_rdg_kce = round(mean(zscore_rdg_kce, na.rm = TRUE), 3),
+                                                               sd_rdg_kce = round(sd(zscore_rdg_kce, na.rm = TRUE), 3)),
+                                          by = c("flag_ohc", "dcf_plcmt_type")]
+  
+  # calc acad outcomes, by ohc status, region
+  a_acad_outcomes_by_region <- acad_yr_data_hs[flag_dpi_yr == 1, list(n_obs = .N,
+                                                                   avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
+                                                                   sd_atten = round(sd(att_rate_wi, na.rm = TRUE), 3),
+                                                                   avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
+                                                                   sd_remove = round(sd(days_removed_os, na.rm = TRUE), 3),
+                                                                   avg_incidents = round(mean(incidents_os, na.rm = TRUE), 3),
+                                                                   sd_incidents = round(sd(incidents_os, na.rm = TRUE), 3),
+                                                                   avg_math_kce = round(mean(zscore_math_kce, na.rm = TRUE), 3),
+                                                                   sd_math_kce = round(sd(zscore_math_kce, na.rm = TRUE), 3),
+                                                                   avg_rdg_kce = round(mean(zscore_rdg_kce, na.rm = TRUE), 3),
+                                                                   sd_rdg_kce = round(sd(zscore_rdg_kce, na.rm = TRUE), 3)),
+                                            by = c("flag_ohc", "region")]
+  
 ############################
 # regressions - attendence #
 ############################
@@ -261,12 +289,15 @@ reg_kce_rdg_ohc_var_sqrt <- lm(zscore_rdg_kce ~ n_plcmt_acad + n_plcmt_acad_sqrt
   # export
   if (p_opt_exp == 1) { 
     
+    # output outcome descriptive tables
     ea_write(a_acad_outcomes, paste0(p_dir_out, "acad_outcomes_overall_hs.csv"))
     ea_write(a_acad_outcomes_by_grd, paste0(p_dir_out, "acad_outcomes_by_grd.csv"))
+    ea_write(a_acad_outcomes_by_type, paste0(p_dir_out, "acad_outcomes_by_type.csv"))
+    ea_write(a_acad_outcomes_by_region, paste0(p_dir_out, "acad_outcomes_by_region.csv"))
     
     # output attendance models, full
     stargazer(reg_attend_ohc, reg_attend_ohc_var, reg_attend_ohc_var_sqrt, type = "html",
-              dep.var.labels = "Average Attendance",
+              dep.var.labels = "Attendance Rate",
               covariate.labels = c("OHC", "Placements in Academic Year", "Placements in Academic Year (SQRT)", "Days in Placement in Academic Year",
                                    "Male", "ELP", "SPED", "FRL", "Hispanic", "Black", "Asian", "Indian", "Age", "School - Percent FRL", 
                                    "School - Percent SPED", "School - Percent ELP", "School - Percent Non-White", "School - Number of Removals", 
@@ -276,7 +307,7 @@ reg_kce_rdg_ohc_var_sqrt <- lm(zscore_rdg_kce ~ n_plcmt_acad + n_plcmt_acad_sqrt
 
     # output attendence models, simplified
     stargazer(reg_attend_ohc, reg_attend_ohc_var, reg_attend_ohc_var_sqrt, type = "html",
-              dep.var.labels = "Average Attendance",
+              dep.var.labels = "Attendance Rate",
               covariate.labels = c("OHC", "Placements in Academic Year", "Placements in Academic Year (SQRT)", "Days in Placement in Academic Year"),
               omit = c("d_male", "d_elp", "d_sped", "d_frl", "d_race_hispanic", "d_race_black", "d_race_asian", "d_race_indian", "age_in_years_cd", 
                        "per_sch_frl", "per_sch_sped", "per_sch_elp", "per_sch_non_white", "per_sch_removal", "sch_mean_math_z_score", 
@@ -286,7 +317,7 @@ reg_kce_rdg_ohc_var_sqrt <- lm(zscore_rdg_kce ~ n_plcmt_acad + n_plcmt_acad_sqrt
 
     # output removal models, full
     stargazer(reg_remove_ohc, reg_remove_ohc_var, reg_remove_ohc_var_sqrt, type = "html",
-              dep.var.labels = "Average Attendance",
+              dep.var.labels = "Number of Removals",
               covariate.labels = c("OHC", "Placements in Academic Year", "Placements in Academic Year (SQRT)", "Days in Placement in Academic Year",
                                    "Male", "ELP", "SPED", "FRL", "Hispanic", "Black", "Asian", "Indian", "Age", "School - Percent FRL", 
                                    "School - Percent SPED", "School - Percent ELP", "School - Percent Non-White", "School - Number of Removals", 
