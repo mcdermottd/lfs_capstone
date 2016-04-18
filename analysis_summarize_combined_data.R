@@ -338,13 +338,17 @@
                                      plot_attributes
   
   # bar plot - total placements by year and placement type
-  plot_bar_plcmts_by_yr_type_hs <- ggplot(a_plcmt_type_yr_hs, aes(acad_year, count)) + 
-                                          geom_bar(stat = "identity", position = "dodge", aes(fill = dcf_plcmt_type))
-  
+  plot_bar_plcmts_by_yr_type_hs <- ggplot(subset(a_plcmt_type_yr_hs, !is.na(dcf_plcmt_type)), aes(acad_year, count)) + 
+                                          geom_bar(stat = "identity", position = "dodge", aes(fill = dcf_plcmt_type)) +
+                                       labs(x = "Academic Year", y = "Number of Placements", 
+                                            title = "Out-of-Home Care Placements by Type \n Per Academic Year") + 
+                                       scale_fill_discrete(name = "Placement Type") +
+                                       plot_attributes
+                                       
   # histogram - total plcmt days in acad year (20 day bins)
   plot_hist_plcmt_days_acad_hs <- ggplot(data = plcmt_yr_data_hs, aes(x = tot_plcmt_days_acad)) + 
                                        geom_histogram(binwidth = 20, colour = "black", fill = "dodgerblue4") +
-                                       labs(x = "Number of Placement Days", y = "Number of Children", 
+                                       labs(x = "Number of Placement Days", y = "Number of Children",
                                             title = "Out-of-Home Care Placement Days Per Academic Year") + 
                                        plot_attributes
 
