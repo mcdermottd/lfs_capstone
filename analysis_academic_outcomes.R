@@ -32,9 +32,7 @@
 
   # load acad year info
   in_acad_year_data <- ea_load("X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata")
-  
-  # load school attributes
-  in_school_att <- fread("X:/LFS-Education Outcomes/data/raw_data/DPI_SCHOOL_ATTRIBUTES.csv")
+
 
 ########################
 # format analysis data #
@@ -70,9 +68,6 @@
   
   # create frl / non-frl flags for comparison groups
   acad_yr_data[, compare_frl := ifelse(flag_ohc == 0 & d_frl == 1, 1, 0)]
-
-  # create flag if hs student #brule
-  acad_yr_data[, flag_hs := ifelse(grade_level_cd %in% c("08", "09", "10", "11", "12"), 1, 0)]
   
   # subset to data with dpi records and with placement in year or comparison group
   sub_acad_yr_data <- subset(acad_yr_data, flag_dpi_yr == 1 & !(flag_ohc == 1 & flag_ohc_yr == 0))
@@ -89,47 +84,6 @@
   # remove duplicate ids, keeping latest academic year (with placement for ohc student) #brule
   latest_acad_yr_hs <- ea_no_dups(acad_yr_data_hs, "lf_child_id")
 
-############################
-# format school covariates #
-############################
-  
-  # copy raw data
-  school_att <- copy(in_school_att)
-  
-  # change var names to lowercase
-  setnames(school_att, tolower(colnames(school_att)))
-  
-  # create school level averages
-  school_att[, ":="(per_sch_frl = frl_count / pupil_count, per_sch_sped = swd_count / pupil_count,  
-                    per_sch_elp = (pupil_count - noelp_count) / pupil_count, per_sch_non_white = (pupil_count - race_w_count) / pupil_count, 
-                    per_sch_removal = totalremovals_total / pupil_count, dist_acctbl_code_cd = as.numeric(distid), 
-                    sch_acctbl_code_cd = as.numeric(schid), acad_year = as.character(year))]
-  
-  # subset to covariates
-  school_covar <- subset(school_att, select = c(acad_year, dist_acctbl_code_cd, sch_acctbl_code_cd, per_sch_frl, per_sch_sped, per_sch_elp, 
-                                                 per_sch_non_white, per_sch_removal, mean_math_z_score, mean_rdg_z_score))
-  
-  # rename vars for merge
-  setnames(school_covar, c("mean_math_z_score", "mean_rdg_z_score"), c("sch_mean_math_z_score", "sch_mean_rdg_z_score"))
-
-  # melt school covariates long to summarize
-  school_covar_long <- melt.data.table(school_covar, id.vars = c("acad_year", "dist_acctbl_code_cd", "sch_acctbl_code_cd"))
-
-  # calc stats for school covariates
-  a_summ_sch_covariates <- school_covar_long[!is.na(value), list(n_obs = length(value),
-                                                                   min = min(value),
-                                                                   q25 = quantile(value, .25),
-                                                                   q50 = quantile(value, .5),
-                                                                   q75 = quantile(value, .75),
-                                                                   max = max(value),
-                                                                   mean = round(mean(value), 3),
-                                                                   var = round(var(value), 3),
-                                                                   sd = round(sd(value), 3)), 
-                                              by = c("variable")]
-
-  # merge with latest year set
-  regression_set <- ea_merge(latest_acad_yr_hs, school_covar, c("acad_year", "dist_acctbl_code_cd", "sch_acctbl_code_cd"), "x")
-  
 ##########################################
 # examine acad outcomes - summary tables #
 ##########################################
