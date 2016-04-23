@@ -16,7 +16,6 @@
   ea_start()
   
   # load packages
-  # library(readstata13)
   library(data.table)
   library(eaanalysis)
 
@@ -35,66 +34,11 @@
   in_stacked_ohc <- ea_load("X:/LFS-Education Outcomes/data/lfs_interim_sets/stacked_ohc_formatted.rdata")
   
   # load ed outcomes dat
-  # in_stacked_dpi <- read.dta13("X:/LFS-Education Outcomes/data/lfs_data/dpimerged_w.dta")
-  in_stacked_dpi <- fread("X:/LFS-Education Outcomes/data/raw_data/DCFmatchedSample03012016.csv")
-
-############################
-# format dpi data to merge #
-############################
+  in_stacked_dpi <- fread("")
   
-  # copy dpi file
-  format_stacked_dpi <- copy(in_stacked_dpi)
-  
-  # remove exact duplicates #brule
-  format_stacked_dpi <- ea_no_dups(format_stacked_dpi, opt_key_all = 1)
-  
-  # convert variable names to lowercase
-  setnames(format_stacked_dpi, colnames(format_stacked_dpi), tolower(colnames(format_stacked_dpi)))
-  
-  # create academic year var
-  format_stacked_dpi[, acad_year := paste0("20", ea_scan(school_year, 2, "-"))]
-  
-  # # replace NA strings ("NA", "") with actual NA
-  # format_stacked_dpi[ format_stacked_dpi == "NA"] <- NA
-  # format_stacked_dpi[ format_stacked_dpi == ""] <- NA
-  # 
-  # # delete unneeded variables
-  # format_stacked_dpi <- subset(format_stacked_dpi, select = -c(schoolyr, dups, dups_1, dups_2, `_merge`))
-
 #######################################
-# create dummies for dpi demographics #
+# create new ids for merge / analysis #
 #######################################
-  
-  # create race dummies
-  format_stacked_dpi[!is.na(gender_code_cd), d_male := ifelse(gender_code_cd == "M", 1, 0)]
-  format_stacked_dpi[!is.na(gender_code_cd), d_female := ifelse(gender_code_cd == "F", 1, 0)]
-
-  # convert elp scale to dummy variable
-  format_stacked_dpi[!is.na(elp_code_cd), d_elp := ifelse(elp_code_cd <= 5, 1, 0)]
-  
-  # convert disability code to dummy variable
-  format_stacked_dpi[!is.na(disab_ye), d_sped := ifelse(disab_ye == "N", 0, 1)]
-  
-  # convert frl code to dummy variable
-  format_stacked_dpi[!is.na(frl_ye), d_frl := ifelse(frl_ye == "N", 0, 1)]
-  format_stacked_dpi[!is.na(frl_ye), d_fpl := ifelse(frl_ye == "F", 1, 0)]
-  format_stacked_dpi[!is.na(frl_ye), d_rpl := ifelse(frl_ye %in% c("A", "R"), 1, 0)]
-
-  # dummy out race variable
-  format_stacked_dpi <- db_dummy(format_stacked_dpi, "race_eth_code_cd", opt_data_frequency = 0)
-  
-  # rename dummied race variables
-  setnames(format_stacked_dpi, c("d_race_eth_code_cd_W", "d_race_eth_code_cd_missing", "d_race_eth_code_cd_I", "d_race_eth_code_cd_B", 
-                                 "d_race_eth_code_cd_H", "d_race_eth_code_cd_A"), c("d_race_white", "d_race_missing", "d_race_indian", "d_race_black",
-                                                                                 "d_race_hispanic", "d_race_asian"))
-  
-  # set all race variables to missing, if race_missing == 1
-  format_stacked_dpi[d_race_missing == 1, c("d_race_white", "d_race_missing", "d_race_indian", "d_race_black", "d_race_hispanic", 
-                                            "d_race_asian") := NA]
-
-########################################
-# create new ids for merge / anaalysis #
-########################################
   
   # create lf ids
   format_stacked_dpi[, ":="(lf_dpi_id = paste0("dpi_", lds_student_key), lf_dcf_id = paste0("dcf_", child_id))]
@@ -105,16 +49,6 @@
   # remove temporary lf ids
   format_stacked_dpi <- subset(format_stacked_dpi, select = -c(lf_dpi_id, lf_dcf_id))
 
-###############################################
-# subset to one row per student per acad year #
-###############################################
-  
-  # sort based on child id, school year, and test scores (to remove rows with missing scores first) #brule
-  setorder(format_stacked_dpi, lf_child_id, acad_year, math_kce_scale_score, rdg_kce_scale_score, na.last = TRUE)
-   
-  # remove duplicates based on child_id and school_year #brule
-  stacked_dpi_no_dups <- ea_no_dups(format_stacked_dpi, c("lf_child_id", "acad_year"))
-  
 ###########################################
 # separate demographics and acad outcomes #
 ###########################################
@@ -136,47 +70,6 @@
                                                            migrant_status_ind_cd, native_lang_code_cd, primary_disab_code_cd, race_eth_code_cd,
                                                            composite_eng_prof_lvl_cd, frl_cd, frl_ye, disab_cd, disab_ye)) 
 
-###########################
-# standardize test scores #
-###########################
-  
-  # subset to necessary vars for melt
-  score_data_to_melt <- subset(dpi_acad_info, select = c(lf_child_id, acad_year, grade_level_cd, math_kce_scale_score, rdg_kce_scale_score))
-  
-  # melt test score data long to summarize
-  score_data_long <- melt.data.table(score_data_to_melt, id.vars = c("lf_child_id", "acad_year", "grade_level_cd"))
-  
-  # sort data
-  setorder(score_data_long, grade_level_cd, acad_year)
-  
-  # calc test stats by grade and acad yr
-  a_kce_stats <- score_data_long[!is.na(value), list(n_obs = length(value),
-                                                     min = min(value),
-                                                     q25 = quantile(value, .25),
-                                                     q50 = quantile(value, .5),
-                                                     q75 = quantile(value, .75),
-                                                     max = max(value),
-                                                     mean = round(mean(value), 3),
-                                                     var = round(var(value), 3),
-                                                     sd = round(sd(value), 3)), 
-                                 by = c("grade_level_cd", "acad_year", "variable")]
-  
-  # subset to vars for standardization
-  sub_kce_stats <- subset(a_kce_stats, select = c(grade_level_cd, acad_year, variable, mean, sd))
-  
-  # cast wide by academic year
-  kce_standardize <- data.table::dcast(sub_kce_stats, grade_level_cd + acad_year ~ variable, value.var = c("mean", "sd"))
-  
-  # merge back with main set
-  dpi_acad_info <- ea_merge(dpi_acad_info, kce_standardize, c("grade_level_cd", "acad_year"), "x")
-  
-  # create z-scored scores
-  dpi_acad_info[, zscore_math_kce := (math_kce_scale_score - mean_math_kce_scale_score) / sd_math_kce_scale_score]
-  dpi_acad_info[, zscore_rdg_kce := (rdg_kce_scale_score - mean_rdg_kce_scale_score) / sd_rdg_kce_scale_score]
-  
-  # delete info for standardization
-  dpi_acad_info[, c("mean_math_kce_scale_score", "mean_rdg_kce_scale_score", "sd_math_kce_scale_score", "sd_rdg_kce_scale_score") := NULL]
-  
 #####################################
 # format ohc data to merge with dpi #
 #####################################
@@ -206,20 +99,6 @@
   
   # create ohc acad year flag
   ohc_acad_info[, flag_ohc_yr := 1]
-
-  # # subset to dpi data with merge id
-  # dpi_merge_data <- subset(format_stacked_dpi, !is.na(child_id))
-  # 
-  # ##################
-  # ###### TEMP ######
-  # ##################
-  # 
-  #   # remove entries with duplicate child ids
-  #   dpi_merge_data <- ea_no_dups(dpi_merge_data, "child_id", opt_delete_all = 1)
-  # 
-  # ##################
-  # ###### TEMP ######
-  # ##################
 
 ###################################
 # merge child characteristic info #
