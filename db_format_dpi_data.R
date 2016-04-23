@@ -1,8 +1,8 @@
 ######################################################################
 # notes:
-# - purpose: 
-# - inputs: 
-# - outputs: 
+# - purpose: format and structure dpi data, merge with school covariates
+# - inputs: raw dpi data set, school covariate set, file with wkce avgs (to standardize scores)
+# - outputs: analysis set (with necessary vars) and set with all vars
 # - keywords: #brule
 # - general:
 ######################################################################
@@ -86,6 +86,9 @@
   format_stacked_dpi[d_race_missing == 1, c("d_race_white", "d_race_missing", "d_race_indian", "d_race_black", "d_race_hispanic", 
                                             "d_race_asian") := NA]
 
+  # create flag if hs student #brule
+  format_stacked_dpi[, flag_hs := ifelse(grade_level_cd %in% c("08", "09", "10", "11", "12"), 1, 0)]
+  
 ###############################################
 # subset to one row per student per acad year #
 ###############################################
@@ -115,6 +118,22 @@
   # create z-scored scores
   stacked_dpi_standard[, zscore_math_kce := (math_kce_scale_score - math_score_mean) / math_score_sd]
   stacked_dpi_standard[, zscore_rdg_kce := (rdg_kce_scale_score - rdg_score_mean) / rdg_score_sd]
+
+#################################
+# create proficiency level vars #
+#################################
+  
+  # create math proficiency level
+  stacked_dpi_standard[math_kce_scale_score >= math_cp_advanced, perf_level_math := 4]
+  stacked_dpi_standard[is.na(perf_level_math) & math_kce_scale_score >= math_cp_proficient, perf_level_math := 3]
+  stacked_dpi_standard[is.na(perf_level_math) & math_kce_scale_score >= math_cp_basic, perf_level_math := 2]
+  stacked_dpi_standard[is.na(perf_level_math) & !is.na(math_kce_scale_score), perf_level_math := 1]
+
+  # create reading proficiency level
+  stacked_dpi_standard[rdg_kce_scale_score >= rdg_cp_advanced, perf_level_rdg := 4]
+  stacked_dpi_standard[is.na(perf_level_rdg) & rdg_kce_scale_score >= rdg_cp_proficient, perf_level_rdg := 3]
+  stacked_dpi_standard[is.na(perf_level_rdg) & rdg_kce_scale_score >= rdg_cp_basic, perf_level_rdg := 2]
+  stacked_dpi_standard[is.na(perf_level_rdg) & !is.na(rdg_kce_scale_score), perf_level_rdg := 1]
   
 ############################
 # format school covariates #
@@ -126,18 +145,22 @@
   # change var names to lowercase
   setnames(school_att, tolower(colnames(school_att)))
   
-  # create school level averages
-  school_att[, ":="(per_sch_frl = frl_count / pupil_count, per_sch_sped = swd_count / pupil_count,  
-                    per_sch_elp = (pupil_count - noelp_count) / pupil_count, per_sch_non_white = (pupil_count - race_w_count) / pupil_count, 
-                    per_sch_removal = totalremovals_total / pupil_count, dist_acctbl_code_cd = as.numeric(distid), 
-                    sch_acctbl_code_cd = as.numeric(schid), acad_year = as.character(year))]
+  # create scaler to convert vars
+  school_att[, scaler := pupil_count / 1000]
+  
+  # create values scaled per 1000 students
+  school_att[, ":="(frl_scaled = frl_count / scaler, sped_scaled = swd_count / scaler,  elp_scaled = (pupil_count - noelp_count) / scaler,
+                    non_white_scaled = (pupil_count - race_w_count) / scaler, removal_scaled = totalremovals_total / scaler, 
+                    dist_acctbl_code_cd = as.numeric(distid), sch_acctbl_code_cd = as.numeric(schid), acad_year = as.character(year))]
   
   # subset to covariates
-  school_covar <- subset(school_att, select = c(acad_year, dist_acctbl_code_cd, sch_acctbl_code_cd, per_sch_frl, per_sch_sped, per_sch_elp, 
-                                                 per_sch_non_white, per_sch_removal, mean_math_z_score, mean_rdg_z_score))
-  
+  school_covar <- subset(school_att, select = c(acad_year, dist_acctbl_code_cd, sch_acctbl_code_cd, pupil_count, fte1000, frl_scaled, sped_scaled,
+                                                elp_scaled, non_white_scaled, removal_scaled, mean_math_z_score, mean_rdg_z_score))
+
   # rename vars for merge
-  setnames(school_covar, c("mean_math_z_score", "mean_rdg_z_score"), c("sch_mean_math_z_score", "sch_mean_rdg_z_score"))
+  rename_vars <- c("pupil_count", "fte1000", "frl_scaled", "sped_scaled", "elp_scaled", "non_white_scaled", "removal_scaled", "mean_math_z_score",
+                   "mean_rdg_z_score")
+  setnames(school_covar, rename_vars, paste0("sch_", rename_vars))
 
   # melt school covariates long to summarize
   school_covar_long <- melt.data.table(school_covar, id.vars = c("acad_year", "dist_acctbl_code_cd", "sch_acctbl_code_cd"))
@@ -155,7 +178,37 @@
                                               by = c("variable")]
 
   # merge with latest year set
-  regression_set <- ea_merge(latest_acad_yr_hs, school_covar, c("acad_year", "dist_acctbl_code_cd", "sch_acctbl_code_cd"), "x")
+  full_dpi_set <- ea_merge(stacked_dpi_standard, school_covar, c("acad_year", "dist_acctbl_code_cd", "sch_acctbl_code_cd"), "x")
   
+#####################
+# format and export #
+#####################
   
+  # subset to analysis vars
+  out_stacked_dpi <- subset(full_dpi_set, select = c(lds_student_key, child_id, d_male, d_female, d_elp, d_sped, d_frl, d_fpl, d_rpl, d_race_white,
+                                                     d_race_black, d_race_indian, d_race_hispanic, d_race_asian, d_race_missing, acad_year, 
+                                                     dist_acctbl_code_cd, sch_acctbl_code_cd, grade_level_cd, flag_hs, att_rate_wi, days_removed_os,
+                                                     incidents_os, test_date, zscore_math_kce, perf_level_math, zscore_rdg_kce, perf_level_rdg,
+                                                     sch_pupil_count, sch_fte1000, sch_frl_scaled, sch_sped_scaled, sch_elp_scaled, 
+                                                     sch_non_white_scaled, sch_removal_scaled, sch_mean_math_z_score, sch_mean_rdg_z_score))
+
+  # sort by child id and acad year
+  setorder(out_stacked_dpi, lds_student_key, acad_year)
+  setorder(full_dpi_set, lds_student_key, acad_year)
+
+  # export
+  if (p_opt_exp == 1) { 
+
+    # output school covariate avgs
+    save(a_summ_sch_covariates, file = "X:/LFS-Education Outcomes/qc/sch_covar_avgs.rdata")
+
+    # output Rdata files
+    save(out_stacked_dpi, file = "X:/LFS-Education Outcomes/data/lfs_interim_sets/dpi_analysis_set.rdata")
+    save(full_dpi_set, file = "X:/LFS-Education Outcomes/data/lfs_interim_sets/dpi_format_full_set.rdata")
+
+    # output csv files
+    # ea_write(out_stacked_dpi, "X:/LFS-Education Outcomes/data/lfs_interim_sets/dpi_analysis_set.csv")
+    # ea_write(full_dpi_set, "X:/LFS-Education Outcomes/data/lfs_interim_sets/dpi_format_full_set.csv")
+
+  }
   
