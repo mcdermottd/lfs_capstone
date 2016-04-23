@@ -97,6 +97,37 @@
   stacked_set[region == "West", flag_reg_w := 1]
   stacked_set[is.na(region), flag_reg_other := 1]
 
+###########################
+# standardize test scores #
+###########################
+  
+  # subset to necessary vars for melt
+  score_data_to_melt <- subset(dpi_acad_info, select = c(lf_child_id, acad_year, grade_level_cd, math_kce_scale_score, rdg_kce_scale_score))
+  
+  # melt test score data long to summarize
+  score_data_long <- melt.data.table(score_data_to_melt, id.vars = c("lf_child_id", "acad_year", "grade_level_cd"))
+  
+  # sort data
+  setorder(score_data_long, grade_level_cd, acad_year)
+  
+  # calc test stats by grade and acad yr
+  a_kce_stats <- score_data_long[!is.na(value), list(n_obs = length(value),
+                                                     min = min(value),
+                                                     q25 = quantile(value, .25),
+                                                     q50 = quantile(value, .5),
+                                                     q75 = quantile(value, .75),
+                                                     max = max(value),
+                                                     mean = round(mean(value), 3),
+                                                     var = round(var(value), 3),
+                                                     sd = round(sd(value), 3)), 
+                                 by = c("grade_level_cd", "acad_year", "variable")]
+  
+  # subset to vars for standardization
+  sub_kce_stats <- subset(a_kce_stats, select = c(grade_level_cd, acad_year, variable, mean, sd))
+  
+  # cast wide by academic year
+  kce_standardize <- data.table::dcast(sub_kce_stats, grade_level_cd + acad_year ~ variable, value.var = c("mean", "sd"))
+  
 #########
 # plots #
 #########
