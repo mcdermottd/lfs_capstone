@@ -94,10 +94,21 @@
 ###############################################
   
   # sort based on child id, school year, and test scores (to remove rows with missing scores first) #brule
-  setorder(format_stacked_dpi, lds_student_key, acad_year, math_kce_scale_score, rdg_kce_scale_score, na.last = TRUE)
-   
-  # remove duplicates based on child_id and school_year #brule
-  stacked_dpi_no_dups <- ea_no_dups(format_stacked_dpi, c("lds_student_key", "acad_year"))  
+  setorder(format_stacked_dpi, lds_student_key, child_id, acad_year, math_kce_scale_score, rdg_kce_scale_score, na.last = TRUE)
+  
+  # subset based on ohc students or not
+  dpi_compare <- subset(format_stacked_dpi, is.na(child_id))
+  dpi_ohc <- subset(format_stacked_dpi, !is.na(child_id))
+
+  # remove duplicates based on id var and acad_year #brule (in some cases, multiple child_ids linked to one lds_student_key)
+  dpi_compare_no_dups <- ea_no_dups(dpi_compare, c("lds_student_key", "acad_year"))
+  dpi_ohc_no_dups <- ea_no_dups(dpi_ohc, c("lds_student_key", "acad_year"))  
+
+  # second remove duplicates for ohc data #brule (in some cases, multiple child_ids linked to one lds_student_key)
+  dpi_ohc_no_dups <- ea_no_dups(dpi_ohc_no_dups, c("child_id", "acad_year"))
+
+  # re-stack two sets
+  stacked_dpi_no_dups <- rbind(dpi_compare_no_dups, dpi_ohc_no_dups)
 
 ###########################
 # standardize test scores #
@@ -113,7 +124,7 @@
   wkce_avgs_merge[nchar(grade_level_cd) == 1, grade_level_cd := paste0("0", grade_level_cd)]
   
   # merge avgs with main data set
-  stacked_dpi_standard <- ea_merge(stacked_dpi_no_dups, wkce_avgs_merge, c("acad_year", "grade_level_cd"))
+  stacked_dpi_standard <- ea_merge(stacked_dpi_no_dups, wkce_avgs_merge, c("acad_year", "grade_level_cd"), "x")
   
   # create z-scored scores
   stacked_dpi_standard[, zscore_math_kce := (math_kce_scale_score - math_score_mean) / math_score_sd]
