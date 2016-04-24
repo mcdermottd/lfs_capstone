@@ -206,9 +206,51 @@
 # merge leading scores for 7th and 9th graders #
 ################################################
   
-  # create set of 8th and 10th grade test scores
-  leading_scores <- subset(full_stacked_data, )
+  # create list of vars to subset, rename
+  change_vars <- c("acad_year", "grade_level_cd", "test_date", "zscore_math_kce", "perf_level_math", "zscore_rdg_kce", "perf_level_rdg")
   
+  # create set of 8th and 10th grade test scores
+  leading_scores <- subset(full_stacked_data, grade_level_cd %in% c("08", "10"), select = c("lf_child_id", change_vars))
+  
+  # update colnames for merge
+  setnames(leading_scores, change_vars, paste0("nxt_", change_vars))
+  
+  # create acad_year var for merge
+  leading_scores[, acad_year := as.character(as.numeric(nxt_acad_year) - 1)]
+  
+  # merge scores with data set
+  analysis_set <- ea_merge(full_stacked_data, leading_scores, c("lf_child_id", "acad_year"), "x")
+
+###########################
+# fill in missing regions #
+###########################
+  
+  # combine county variables
+  analysis_set[, lf_county := provider_county]
+  analysis_set[is.na(lf_county), lf_county := sch_county_name]
+
+  # create region strings
+  p_reg_nc <- c("Vilas", "Oneida", "Forest", "Lincoln", "Langlade", "Marathon", "Wood", "Portage", "Adams")
+  p_reg_ne <- c("Florence", "Marinette", "Menominee", "Oconto", "Shawano", "Waupaca", "Outagamie", "Brown", "Kewaunee", "Door", "Waushara", 
+                "Winnebago", "Calumet", "Manitowoc", "Green Lake", "Fond Du Lac", "Fond du Lac", "Sheboygan")
+  p_reg_nw <- c("Bayfield", "Ashland", "Iron", "Sawyer", "Price", "Taylor", "Douglas", "Burnett", "Washburn", "Polk", "Barron", "Rusk")
+  p_reg_se <- c("Walworth", "Racine", "Kenosha")
+  p_reg_s <- c("Marquette", "Richland", "Sauk", "Columbia", "Dodge", "Washington", "Ozaukee", "Grant", "Iowa", "Dane", "Jefferson", "Waukesha", 
+               "Lafayette", "Green", "Rock")
+  p_reg_w <- c("St Croix", "Saint Croix", "Dunn", "Chippewa", "Pierce", "Pepin", "Eau Claire", "Clark", "Buffalo", "Trempealeau", "Jackson", 
+               "La Crosse", 
+               "Monroe", "Juneau", "Vernon", "Crawford")
+
+  # create regions for missings #brule
+  analysis_set[, lf_region := region]
+  analysis_set[is.na(lf_region) & lf_county %in% p_reg_nc, lf_region := "Northcentral"]
+  analysis_set[is.na(lf_region) & lf_county %in% p_reg_ne, lf_region := "Northeast"]
+  analysis_set[is.na(lf_region) & lf_county %in% p_reg_nw, lf_region := "Northwest"]
+  analysis_set[is.na(lf_region) & lf_county %in% p_reg_se, lf_region := "Southeast"]
+  analysis_set[is.na(lf_region) & lf_county %in% p_reg_s, lf_region := "South"]
+  analysis_set[is.na(lf_region) & lf_county %in% p_reg_w, lf_region := "West"]
+  analysis_set[is.na(lf_region) & lf_county == "Milwaukee", lf_region := "Milwaukee"]
+
 ##########
 # export #
 ##########
@@ -216,11 +258,8 @@
   # export
   if (p_opt_exp == 1) { 
     
-    ea_write(analysis_set, "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.csv")
     save(analysis_set, file = "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata")
-
-    ea_write(dpi_ohc_child_info, "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_child_info.csv")
-    save(dpi_ohc_child_info, file = "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_child_info.rdata")
+    # ea_write(analysis_set, "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.csv")
     
     ea_write(ohc_ids_merge, "X:/LFS-Education Outcomes/qc/ohc_merged_ids.csv")
     ea_write(a_merge_stats, "X:/LFS-Education Outcomes/qc/ohc_merged_rates.csv")
