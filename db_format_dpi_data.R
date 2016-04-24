@@ -165,16 +165,16 @@
                     dist_acctbl_code_cd = as.numeric(distid), sch_acctbl_code_cd = as.numeric(schid), acad_year = as.character(year))]
   
   # subset to covariates
-  school_covar <- subset(school_att, select = c(acad_year, dist_acctbl_code_cd, sch_acctbl_code_cd, pupil_count, fte1000, frl_scaled, sped_scaled,
-                                                elp_scaled, non_white_scaled, removal_scaled, mean_math_z_score, mean_rdg_z_score))
+  school_covar <- subset(school_att, select = c(acad_year, dist_acctbl_code_cd, sch_acctbl_code_cd, county_name, pupil_count, fte1000, frl_scaled,
+                                                sped_scaled, elp_scaled, non_white_scaled, removal_scaled, mean_math_z_score, mean_rdg_z_score))
 
   # rename vars for merge
-  rename_vars <- c("pupil_count", "fte1000", "frl_scaled", "sped_scaled", "elp_scaled", "non_white_scaled", "removal_scaled", "mean_math_z_score",
-                   "mean_rdg_z_score")
+  rename_vars <- c("county_name", "pupil_count", "fte1000", "frl_scaled", "sped_scaled", "elp_scaled", "non_white_scaled", "removal_scaled", 
+                   "mean_math_z_score", "mean_rdg_z_score")
   setnames(school_covar, rename_vars, paste0("sch_", rename_vars))
 
   # melt school covariates long to summarize
-  school_covar_long <- melt.data.table(school_covar, id.vars = c("acad_year", "dist_acctbl_code_cd", "sch_acctbl_code_cd"))
+  school_covar_long <- melt.data.table(school_covar, id.vars = c("acad_year", "dist_acctbl_code_cd", "sch_acctbl_code_cd", "sch_county_name"))
 
   # calc stats for school covariates
   a_summ_sch_covariates <- school_covar_long[!is.na(value), list(n_obs = length(value),
@@ -198,10 +198,11 @@
   # subset to analysis vars
   out_stacked_dpi <- subset(full_dpi_set, select = c(lds_student_key, child_id, d_male, d_female, d_elp, d_sped, d_frl, d_fpl, d_rpl, d_race_white,
                                                      d_race_black, d_race_hispanic, d_race_asian, d_race_indian, d_race_missing, acad_year, 
-                                                     dist_acctbl_code_cd, sch_acctbl_code_cd, age_in_years_cd, grade_level_cd, flag_hs, att_rate_wi,
-                                                     days_removed_os, incidents_os, test_date, zscore_math_kce, perf_level_math, zscore_rdg_kce,
-                                                     perf_level_rdg, sch_pupil_count, sch_fte1000, sch_frl_scaled, sch_sped_scaled, sch_elp_scaled, 
-                                                     sch_non_white_scaled, sch_removal_scaled, sch_mean_math_z_score, sch_mean_rdg_z_score))
+                                                     dist_acctbl_code_cd, sch_acctbl_code_cd, sch_county_name, age_in_years_cd, grade_level_cd, 
+                                                     flag_hs, att_rate_wi, days_removed_os, incidents_os, test_date, zscore_math_kce, perf_level_math,
+                                                     zscore_rdg_kce, perf_level_rdg, sch_pupil_count, sch_fte1000, sch_frl_scaled, sch_sped_scaled,
+                                                     sch_elp_scaled, sch_non_white_scaled, sch_removal_scaled, sch_mean_math_z_score, 
+                                                     sch_mean_rdg_z_score))
 
   # sort by child id and acad year
   setorder(out_stacked_dpi, lds_student_key, acad_year)
