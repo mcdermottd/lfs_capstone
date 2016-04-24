@@ -61,21 +61,21 @@
 #######################################
   
   # subset dpi data to merge id and remove duplicates
-  dpi_merge_ids <- subset(format_dpi_set, select = c(lf_child_id, lds_student_key, child_id))
-  dpi_merge_ids <- ea_no_dups(dpi_merge_ids, "lf_child_id")
+  dpi_data_ids <- subset(format_dpi_set, select = c(lf_child_id, lds_student_key, child_id))
+  dpi_data_ids <- ea_no_dups(dpi_data_ids, "lf_child_id")
 
   # create dpi merge flag
-  dpi_merge_ids[, flag_dpi := 1]
+  dpi_data_ids[, flag_dpi := 1]
 
   # subset ohc data to id and remove duplicates
-  ohc_merge_ids <- subset(format_ohc_set, select = lf_child_id)
-  ohc_merge_ids <- ea_no_dups(ohc_merge_ids, "lf_child_id")
+  ohc_data_ids <- subset(format_ohc_set, select = lf_child_id)
+  ohc_data_ids <- ea_no_dups(ohc_data_ids, "lf_child_id")
   
   # create ohc merge flag
-  ohc_merge_ids[, flag_ohc := 1]
+  ohc_data_ids[, flag_ohc := 1]
 
   # merge ohc ids with dpi data
-  combined_ids <- ea_merge(dpi_merge_ids, ohc_merge_ids, "lf_child_id")
+  combined_ids <- ea_merge(dpi_data_ids, ohc_data_ids, "lf_child_id")
   
   # fill in missing flags
   combined_ids[is.na(flag_dpi), flag_dpi := 0]
@@ -110,35 +110,52 @@
   merged_dpi_ohc <- subset(merged_dpi_info, flag_ohc == 1)
   merged_dpi_compare <- subset(merged_dpi_info, flag_ohc == 0)
   
-############################################
-# combine ohc placement info with dpi data #
-############################################  
+############################
+# subset ohc data to merge #
+############################
   
   # create ohc set with only merged students
-  ohc_for_merge <- ea_merge(format_ohc_set, subset(ohc_ids_merge, flag_merge == 1), "lf_child_id", "y", opt_print = 0)
+  sub_ohc_data <- ea_merge(format_ohc_set, subset(ohc_ids_merge, flag_merge == 1), "lf_child_id", "y", opt_print = 0)
   
-  # only keep vars necessary for merge
-  ohc_for_merge <- subset(ohc_for_merge, select = c(lf_child_id, acad_year, n_ohc_tot, tot_ohc_days, first_ohc_start_date, last_ohc_end_date,
-                                                     n_plcmt_tot, tot_plcmt_days, first_pstart_date, last_pend_date, n_plcmt_acad, 
-                                                     tot_plcmt_days_acad, first_pstart_date_acad, last_pend_date_acad, dcf_plcmt_type,
-                                                     region, provider_county, tpr_finalization_date, adoption_final_date))
+  # create set of ohc child info
+  ohc_child_info <- subset(sub_ohc_data, select = c(lf_child_id, n_ohc_tot, tot_ohc_days, first_ohc_start_date, last_ohc_end_date,
+                                                     n_plcmt_tot, tot_plcmt_days, first_pstart_date, last_pend_date))
+  
+  # remove duplicates
+  ohc_child_info <- ea_no_dups(ohc_child_info, "lf_child_id")
+  
+  # create set of acad. yr. ohc info
+  ohc_acad_yr_info <- subset(sub_ohc_data, select = c(lf_child_id, acad_year, n_plcmt_acad, tot_plcmt_days_acad, first_pstart_date_acad, 
+                                                       last_pend_date_acad, dcf_plcmt_type, region, provider_county, tpr_finalization_date, 
+                                                       adoption_final_date))
   
   # merge on matching academic years from dpi data
-  ohc_for_merge <- ea_merge(subset(merged_dpi_ohc, select = c("lf_child_id", "acad_year", "flag_ohc")), ohc_for_merge, 
-                            c("lf_child_id", "acad_year"), "y")
+  ohc_acad_yr_info <- ea_merge(subset(merged_dpi_ohc, select = c("lf_child_id", "acad_year", "flag_ohc")), ohc_acad_yr_info, 
+                               c("lf_child_id", "acad_year"), "y")
   
   # subset ohc data with no matching dpi year #brule
-  ohc_dpi_yr <- subset(ohc_for_merge, !is.na(flag_ohc))
-  ohc_no_dpi_yr <- subset(ohc_for_merge, is.na(flag_ohc))
+  ohc_dpi_yr <- subset(ohc_acad_yr_info, !is.na(flag_ohc))
+  ohc_no_dpi_yr <- subset(ohc_acad_yr_info, is.na(flag_ohc))
+  
+###########################################
+# combine dpi data with matched ohc years #
+###########################################
+  
+  # combine child info with dpi data
+  merged_dpi_ohc <- ea_merge(merged_dpi_ohc, ohc_child_info, "lf_child_id", opt_print = 0)
   
   # merge full dpi info with matched years
   ohc_dpi_matched <- ea_merge(merged_dpi_ohc, ohc_dpi_yr, c("lf_child_id", "acad_year", "flag_ohc"))
   
+###############################################
+# add demographic info to unmatched ohc years #
+###############################################
   
   # create set of dpi demographic info to merge with missing years
   dpi_child_info <- subset(merged_dpi_ohc, select = c(lf_child_id, lds_student_key, child_id, flag_ohc, d_male, d_female, d_elp, d_sped, d_frl, 
                                                       d_fpl, d_rpl, d_race_white, d_race_black, d_race_hispanic, d_race_indian, d_race_asian, 
-                                                      d_race_missing)) 
+                                                      d_race_missing, n_ohc_tot, tot_ohc_days, first_ohc_start_date, last_ohc_end_date, n_plcmt_tot,
+                                                      tot_plcmt_days, first_pstart_date, last_pend_date)) 
 
   # sort based on child_id and characteristics (to remove rows with missing demographics first) #brule
   setorder(dpi_child_info, lf_child_id, d_male, na.last = TRUE)
@@ -154,8 +171,32 @@
   
   # stack merged ohc sets
   ohc_dpi_full <- rbind(ohc_dpi_matched, ohc_dpi_unmatched, fill = TRUE)
+
+#############################################
+# create flags based on first ohc placement # 
+#############################################
+  
+  # create flag for placement in current year
+  ohc_dpi_full[, flag_ohc_plcmt := ifelse()]
   
   
+  
+  
+######################
+# format merged data #
+######################
+  
+  # create avg days per placement vars
+  child_demo_data[, avg_days_ohc := tot_ohc_days / n_ohc_tot]
+  child_demo_data[, avg_days_plcmt := tot_plcmt_days / n_plcmt_tot]
+  acad_yr_data[, avg_days_plcmt_acad := tot_plcmt_days_acad / n_plcmt_acad]
+  
+    # fill in 0 for ohc vars for comparison group
+  acad_yr_data[flag_ohc == 0, c("n_plcmt_acad", "tot_plcmt_days_acad", "avg_days_plcmt_acad") := 0]
+  
+  # create frl / non-frl flags for comparison groups
+  child_demo_data[, compare_frl := ifelse(flag_ohc == 0 & d_frl == 1, 1, 0)]
+  acad_yr_data[, compare_frl := ifelse(flag_ohc == 0 & d_frl == 1, 1, 0)]
 
   
 
@@ -172,9 +213,6 @@
 
     ea_write(dpi_ohc_child_info, "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_child_info.csv")
     save(dpi_ohc_child_info, file = "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_child_info.rdata")
-    
-    ea_write(a_kce_stats, "X:/LFS-Education Outcomes/qc/kce_stats_by_grade.csv")
-    ea_write(kce_standardize, "X:/LFS-Education Outcomes/qc/zscore_statistics.csv")
     
     ea_write(ohc_ids_merge, "X:/LFS-Education Outcomes/qc/ohc_merged_ids.csv")
     ea_write(a_merge_stats, "X:/LFS-Education Outcomes/qc/ohc_merged_rates.csv")
