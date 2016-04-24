@@ -50,53 +50,6 @@
   stacked_set[, flag_disability := 0]
   stacked_set[child_disability == "Y", flag_disability := 1]
 
-#####################################
-# fill in missing placement regions #
-#####################################
-
-  # create region strings
-  p_reg_nc <- c("Vilas", "Oneida", "Forest", "Lincoln", "Langlade", "Marathon", "Wood", "Portage", "Adams")
-  p_reg_ne <- c("Florence", "Marinette", "Menominee", "Oconto", "Shawano", "Waupaca", "Outagamie", "Brown", "Kewaunee", "Door", "Waushara", 
-                "Winnebago", "Calumet", "Manitowoc", "Green Lake", "Fond Du Lac", "Sheboygan")
-  p_reg_nw <- c("Bayfield", "Ashland", "Iron", "Sawyer", "Price", "Taylor", "Douglas", "Burnett", "Washburn", "Polk", "Barron", "Rusk")
-  p_reg_se <- c("Walworth", "Racine", "Kenosha")
-  p_reg_s <- c("Marquette", "Richland", "Sauk", "Columbia", "Dodge", "Washington", "Ozaukee", "Grant", "Iowa", "Dane", "Jefferson", "Waukesha", 
-               "Lafayette", "Green", "Rock")
-  p_reg_w <- c("St Croix", "Dunn", "Chippewa", "Pierce", "Pepin", "Eau Claire", "Clark", "Buffalo", "Trempealeau", "Jackson", "La Crosse", 
-               "Monroe", "Juneau", "Vernon", "Crawford")
-
-  # create regions for missings #brule
-  stacked_set[is.na(region) & provider_county %in% p_reg_nc, region := "Northcentral"]
-  stacked_set[is.na(region) & provider_county %in% p_reg_ne, region := "Northeast"]
-  stacked_set[is.na(region) & provider_county %in% p_reg_nw, region := "Northwest"]
-  stacked_set[is.na(region) & provider_county %in% p_reg_se, region := "Southeast"]
-  stacked_set[is.na(region) & provider_county %in% p_reg_s, region := "South"]
-  stacked_set[is.na(region) & provider_county %in% p_reg_w, region := "West"]
-  stacked_set[is.na(region) & provider_county == "Milwaukee", region := "Milwaukee"]
-  
-#########################################
-# create placement dummies for analysis #
-#########################################
-  
-  # create placement type dummies
-  stacked_set[, c("flag_fhome_rel", "flag_fhome_nrel", "flag_ghome", "flag_rcc", "flag_plcmt_other") := 0]
-  stacked_set[dcf_plcmt_type == "Foster Home (Relative)", flag_fhome_rel := 1]
-  stacked_set[dcf_plcmt_type == "Foster Home (Non-Relative)", flag_fhome_nrel := 1]
-  stacked_set[dcf_plcmt_type == "Group Home", flag_ghome := 1]
-  stacked_set[dcf_plcmt_type == "RCC", flag_rcc := 1]
-  stacked_set[is.na(dcf_plcmt_type), flag_plcmt_other := 1]
-  
-  # create region dummies
-  stacked_set[, c("flag_reg_mke", "flag_reg_nc", "flag_reg_ne", "flag_reg_nw", "flag_reg_s", "flag_reg_se", "flag_reg_w", "flag_reg_other") := 0]
-  stacked_set[region == "Milwaukee", flag_reg_mke := 1]
-  stacked_set[region == "Northcentral", flag_reg_nc := 1]
-  stacked_set[region == "Northeast", flag_reg_ne := 1]
-  stacked_set[region == "Northwest", flag_reg_nw := 1]
-  stacked_set[region == "South", flag_reg_s := 1]
-  stacked_set[region == "Southeast", flag_reg_se := 1]
-  stacked_set[region == "West", flag_reg_w := 1]
-  stacked_set[is.na(region), flag_reg_other := 1]
-
 ###########################
 # standardize test scores #
 ###########################
