@@ -16,6 +16,7 @@
   ea_start()
   
   # load packages
+  library(lubridate)
   library(data.table)
 
 #############
@@ -172,34 +173,34 @@
   # stack merged ohc sets
   ohc_dpi_full <- rbind(ohc_dpi_matched, ohc_dpi_unmatched, fill = TRUE)
 
-#############################################
-# create flags based on first ohc placement # 
-#############################################
-  
-  # create flag for placement in current year
-  ohc_dpi_full[, flag_ohc_plcmt := ifelse()]
-  
-  
-  
-  
-######################
-# format merged data #
-######################
+#########################################
+# create additional placement variables #
+#########################################
   
   # create avg days per placement vars
-  child_demo_data[, avg_days_ohc := tot_ohc_days / n_ohc_tot]
-  child_demo_data[, avg_days_plcmt := tot_plcmt_days / n_plcmt_tot]
-  acad_yr_data[, avg_days_plcmt_acad := tot_plcmt_days_acad / n_plcmt_acad]
+  ohc_dpi_full[, avg_days_ohc := tot_ohc_days / n_ohc_tot]
+  ohc_dpi_full[, avg_days_plcmt := tot_plcmt_days / n_plcmt_tot]
+  ohc_dpi_full[, avg_days_plcmt_acad := tot_plcmt_days_acad / n_plcmt_acad]
   
-    # fill in 0 for ohc vars for comparison group
-  acad_yr_data[flag_ohc == 0, c("n_plcmt_acad", "tot_plcmt_days_acad", "avg_days_plcmt_acad") := 0]
+  # create flag for placement in current year
+  ohc_dpi_full[, flag_cur_plcmt := ifelse(!is.na(n_plcmt_acad), 1, 0)]
+  
+  # create flag if prior placement
+  ohc_dpi_full[, flag_prior_plcmt := ifelse(is.na(n_plcmt_acad) & first_pstart_date < ymd(paste0((as.numeric(acad_year) - 1), "-06-01")), 1, 0)]
+
+###############################
+# combine all data and format #
+###############################
+  
+  # stack ohc and comparison group data
+  full_stacked_data <- rbind(ohc_dpi_full, merged_dpi_compare, fill = TRUE)
+
+  # fill in 0 for ohc vars for comparison group
+  full_stacked_data[flag_ohc == 0, c("n_ohc_tot", "tot_ohc_days", "n_plcmt_tot", "tot_plcmt_days", "n_plcmt_acad", "tot_plcmt_days_acad", 
+                                     "avg_days_plcmt_acad", "flag_cur_plcmt", "flag_prior_plcmt") := 0]
   
   # create frl / non-frl flags for comparison groups
-  child_demo_data[, compare_frl := ifelse(flag_ohc == 0 & d_frl == 1, 1, 0)]
-  acad_yr_data[, compare_frl := ifelse(flag_ohc == 0 & d_frl == 1, 1, 0)]
-
-  
-
+  full_stacked_data[, compare_frl := ifelse(flag_ohc == 0 & d_frl == 1, 1, 0)]
 
 ##########
 # export #
