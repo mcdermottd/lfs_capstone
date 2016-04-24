@@ -173,35 +173,42 @@
   # stack merged ohc sets
   ohc_dpi_full <- rbind(ohc_dpi_matched, ohc_dpi_unmatched, fill = TRUE)
 
-#########################################
-# create additional placement variables #
-#########################################
-  
-  # create avg days per placement vars
-  ohc_dpi_full[, avg_days_ohc := tot_ohc_days / n_ohc_tot]
-  ohc_dpi_full[, avg_days_plcmt := tot_plcmt_days / n_plcmt_tot]
-  ohc_dpi_full[, avg_days_plcmt_acad := tot_plcmt_days_acad / n_plcmt_acad]
-  
-  # create flag for placement in current year
-  ohc_dpi_full[, flag_cur_plcmt := ifelse(!is.na(n_plcmt_acad), 1, 0)]
-  
-  # create flag if prior placement
-  ohc_dpi_full[, flag_prior_plcmt := ifelse(is.na(n_plcmt_acad) & first_pstart_date < ymd(paste0((as.numeric(acad_year) - 1), "-06-01")), 1, 0)]
-
 ###############################
 # combine all data and format #
 ###############################
   
   # stack ohc and comparison group data
   full_stacked_data <- rbind(ohc_dpi_full, merged_dpi_compare, fill = TRUE)
-
-  # fill in 0 for ohc vars for comparison group
-  full_stacked_data[flag_ohc == 0, c("n_ohc_tot", "tot_ohc_days", "n_plcmt_tot", "tot_plcmt_days", "n_plcmt_acad", "tot_plcmt_days_acad", 
-                                     "avg_days_plcmt_acad", "flag_cur_plcmt", "flag_prior_plcmt") := 0]
   
+  # create flag for placement in current year
+  full_stacked_data[, flag_cur_plcmt := ifelse(!is.na(n_plcmt_acad), 1, 0)]
+  
+  # create flag if prior placement
+  full_stacked_data[, flag_prior_plcmt := ifelse(is.na(n_plcmt_acad) & first_pstart_date < ymd(paste0((as.numeric(acad_year) - 1), "-06-01")), 1, 0)]
+
+  # change necessary vars to numeric
+  change_vars <- c("n_ohc_tot", "tot_ohc_days", "n_plcmt_tot", "tot_plcmt_days", "n_plcmt_acad", "tot_plcmt_days_acad")
+  full_stacked_data[, change_vars] <- lapply(full_stacked_data[, change_vars, with = FALSE], as.numeric)
+  
+  # create avg days per placement vars
+  full_stacked_data[, avg_days_ohc := tot_ohc_days / n_ohc_tot]
+  full_stacked_data[, avg_days_plcmt := tot_plcmt_days / n_plcmt_tot]
+  full_stacked_data[, avg_days_plcmt_acad := tot_plcmt_days_acad / n_plcmt_acad]
+  
+  # fill in 0 for missing ohc vars
+  full_stacked_data[flag_ohc == 0, c(change_vars, "avg_days_ohc", "avg_days_plcmt", "avg_days_plcmt_acad") := 0]
+  full_stacked_data[flag_cur_plcmt == 0, c("n_plcmt_acad", "tot_plcmt_days_acad", "avg_days_plcmt_acad") := 0]
+
   # create frl / non-frl flags for comparison groups
   full_stacked_data[, compare_frl := ifelse(flag_ohc == 0 & d_frl == 1, 1, 0)]
 
+################################################
+# merge leading scores for 7th and 9th graders #
+################################################
+  
+  # create set of 8th and 10th grade test scores
+  leading_scores <- subset(full_stacked_data, )
+  
 ##########
 # export #
 ##########
