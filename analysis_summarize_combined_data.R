@@ -50,40 +50,6 @@
   
   # sort by academic year
   setorder(acad_yr_data, acad_year)
-  
-  # create avg days per placement vars
-  child_demo_data[, avg_days_ohc := tot_ohc_days / n_ohc_tot]
-  child_demo_data[, avg_days_plcmt := tot_plcmt_days / n_plcmt_tot]
-  acad_yr_data[, avg_days_plcmt_acad := tot_plcmt_days_acad / n_plcmt_acad]
-
-###################################
-# create flags for sample subsets #
-###################################
-  
-  # create frl / non-frl flags for comparison groups
-  child_demo_data[, compare_frl := ifelse(flag_ohc == 0 & d_frl == 1, 1, 0)]
-  acad_yr_data[, compare_frl := ifelse(flag_ohc == 0 & d_frl == 1, 1, 0)]
-
-  # create flag if hs student #brule
-  acad_yr_data[, flag_hs := ifelse(grade_level_cd %in% c("08", "09", "10", "11", "12"), 1, 0)]
-  
-  # create hs subset
-  acad_yr_data_hs <- subset(acad_yr_data, flag_hs == 1)
-  
-  # subset to ids of HS school students (8th - 12th grades)
-  hs_student_ids <- subset(acad_yr_data_hs, select = c(lf_child_id, flag_hs))
-  
-  # remove dups based on id
-  hs_student_ids <- ea_no_dups(hs_student_ids, "lf_child_id")
-  
-  # merge with child demo info
-  child_demo_data <- ea_merge(child_demo_data, hs_student_ids, "lf_child_id", opt_print = 0)
-  
-  # fill in missing flags
-  child_demo_data[is.na(flag_hs), flag_hs := 0]
-
-  # hs subset of child demo set  
-  child_demo_data_hs <- subset(child_demo_data, flag_hs == 1)
 
 ################################
 # examine overall demographics #

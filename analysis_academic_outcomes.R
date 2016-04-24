@@ -33,7 +33,6 @@
   # load acad year info
   in_acad_year_data <- ea_load("X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata")
 
-
 ########################
 # format analysis data #
 ########################
@@ -48,16 +47,6 @@
   # sort by academic year
   setorder(acad_yr_data, acad_year)
   
-  # create avg days per placement vars
-  acad_yr_data[, avg_days_plcmt_acad := tot_plcmt_days_acad / n_plcmt_acad]
-  
-##############################
-# create vars for regression #
-##############################
-  
-  # fill in 0 for ohc vars for comparison group
-  acad_yr_data[flag_ohc == 0, c("n_plcmt_acad", "tot_plcmt_days_acad", "avg_days_plcmt_acad") := 0]
-  
   # create squared and square root term from number of placements
   acad_yr_data[, n_plcmt_acad_sq := n_plcmt_acad * n_plcmt_acad]
   acad_yr_data[, n_plcmt_acad_sqrt := sqrt(n_plcmt_acad)]
@@ -65,9 +54,6 @@
 ##############################
 # subset sample for analysis #
 ##############################
-  
-  # create frl / non-frl flags for comparison groups
-  acad_yr_data[, compare_frl := ifelse(flag_ohc == 0 & d_frl == 1, 1, 0)]
   
   # subset to data with dpi records and with placement in year or comparison group
   sub_acad_yr_data <- subset(acad_yr_data, flag_dpi_yr == 1 & !(flag_ohc == 1 & flag_ohc_yr == 0))
