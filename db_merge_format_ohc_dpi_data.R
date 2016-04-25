@@ -18,13 +18,14 @@
   # load packages
   library(lubridate)
   library(data.table)
+  library(eaanalysis)
 
 #############
 # set parms #
 #############
 
   # output toggle
-  p_opt_exp <- 0
+  p_opt_exp <- 1
 
 #############
 # load data #
@@ -178,29 +179,37 @@
 ###############################
   
   # stack ohc and comparison group data
-  full_stacked_data <- rbind(ohc_dpi_full, merged_dpi_compare, fill = TRUE)
+  stacked_data <- rbind(ohc_dpi_full, merged_dpi_compare, fill = TRUE)
   
   # create flag for placement in current year
-  full_stacked_data[, flag_cur_plcmt := ifelse(!is.na(n_plcmt_acad), 1, 0)]
+  stacked_data[, flag_cur_plcmt := ifelse(!is.na(n_plcmt_acad), 1, 0)]
   
   # create flag if prior placement
-  full_stacked_data[, flag_prior_plcmt := ifelse(is.na(n_plcmt_acad) & first_pstart_date < ymd(paste0((as.numeric(acad_year) - 1), "-06-01")), 1, 0)]
+  stacked_data[, flag_prior_plcmt := ifelse(is.na(n_plcmt_acad) & first_pstart_date < ymd(paste0((as.numeric(acad_year) - 1), "-06-01")), 1, 0)]
+
+  # create frl / non-frl flags for comparison groups
+  stacked_data[, compare_frl := ifelse(flag_ohc == 0 & d_frl == 1, 1, 0)]
+
+####################################
+# create additional placement vars #
+####################################
 
   # change necessary vars to numeric
   change_vars <- c("n_ohc_tot", "tot_ohc_days", "n_plcmt_tot", "tot_plcmt_days", "n_plcmt_acad", "tot_plcmt_days_acad")
-  full_stacked_data[, change_vars] <- lapply(full_stacked_data[, change_vars, with = FALSE], as.numeric)
-  
-  # create avg days per placement vars
-  full_stacked_data[, avg_days_ohc := tot_ohc_days / n_ohc_tot]
-  full_stacked_data[, avg_days_plcmt := tot_plcmt_days / n_plcmt_tot]
-  full_stacked_data[, avg_days_plcmt_acad := tot_plcmt_days_acad / n_plcmt_acad]
+  stacked_data[, change_vars] <- lapply(stacked_data[, change_vars, with = FALSE], as.numeric)
+
+  # create truncated placement vars #brule
+  stacked_data[n_plcmt_tot > 20, lf_n_plcmt_tot := 20]
+  stacked_data[n_plcmt_acad > 10, lf_n_plcmt_acad := 10]
+
+  # create avg length (# of days) per placement vars
+  stacked_data[, avg_length_ohc := tot_ohc_days / n_ohc_tot]
+  stacked_data[, avg_length_plcmt := tot_plcmt_days / n_plcmt_tot]
+  stacked_data[, avg_length_plcmt_acad := tot_plcmt_days_acad / n_plcmt_acad]
   
   # fill in 0 for missing ohc vars
-  full_stacked_data[flag_ohc == 0, c(change_vars, "avg_days_ohc", "avg_days_plcmt", "avg_days_plcmt_acad") := 0]
-  full_stacked_data[flag_cur_plcmt == 0, c("n_plcmt_acad", "tot_plcmt_days_acad", "avg_days_plcmt_acad") := 0]
-
-  # create frl / non-frl flags for comparison groups
-  full_stacked_data[, compare_frl := ifelse(flag_ohc == 0 & d_frl == 1, 1, 0)]
+  stacked_data[flag_ohc == 0, c(change_vars, "avg_days_ohc", "avg_days_plcmt", "avg_days_plcmt_acad") := 0]
+  stacked_data[flag_cur_plcmt == 0, c("n_plcmt_acad", "tot_plcmt_days_acad", "lf_n_plcmt_acad", "avg_days_plcmt_acad") := 0]
 
 ################################################
 # merge leading scores for 7th and 9th graders #
@@ -210,7 +219,7 @@
   change_vars <- c("acad_year", "grade_level_cd", "test_date", "zscore_math_kce", "perf_level_math", "zscore_rdg_kce", "perf_level_rdg")
   
   # create set of 8th and 10th grade test scores
-  leading_scores <- subset(full_stacked_data, grade_level_cd %in% c("08", "10"), select = c("lf_child_id", change_vars))
+  leading_scores <- subset(stacked_data, grade_level_cd %in% c("08", "10"), select = c("lf_child_id", change_vars))
   
   # update colnames for merge
   setnames(leading_scores, change_vars, paste0("nxt_", change_vars))
@@ -219,15 +228,23 @@
   leading_scores[, acad_year := as.character(as.numeric(nxt_acad_year) - 1)]
   
   # merge scores with data set
-  analysis_set <- ea_merge(full_stacked_data, leading_scores, c("lf_child_id", "acad_year"), "x")
+  stacked_data_lscores <- ea_merge(stacked_data, leading_scores, c("lf_child_id", "acad_year"), "x")
+
+#################################
+# create college-ready variable #
+#################################
+  
+  # create college-ready flag based on math score #brule
+  stacked_data_lscores[, flag_col_rdy := ifelse(perf_level_math == 4, 1, 0)]
+  stacked_data_lscores[, flag_col_rdy_nxt := ifelse(nxt_perf_level_math == 4, 1, 0)]
 
 ###########################
 # fill in missing regions #
 ###########################
   
   # combine county variables
-  analysis_set[, lf_county := provider_county]
-  analysis_set[is.na(lf_county), lf_county := sch_county_name]
+  stacked_data_lscores[, lf_county := provider_county]
+  stacked_data_lscores[is.na(lf_county), lf_county := sch_county_name]
 
   # create region strings
   p_reg_nc <- c("Vilas", "Oneida", "Forest", "Lincoln", "Langlade", "Marathon", "Wood", "Portage", "Adams")
@@ -238,18 +255,50 @@
   p_reg_s <- c("Marquette", "Richland", "Sauk", "Columbia", "Dodge", "Washington", "Ozaukee", "Grant", "Iowa", "Dane", "Jefferson", "Waukesha", 
                "Lafayette", "Green", "Rock")
   p_reg_w <- c("St Croix", "Saint Croix", "Dunn", "Chippewa", "Pierce", "Pepin", "Eau Claire", "Clark", "Buffalo", "Trempealeau", "Jackson", 
-               "La Crosse", 
-               "Monroe", "Juneau", "Vernon", "Crawford")
+               "La Crosse", "Monroe", "Juneau", "Vernon", "Crawford")
 
   # create regions for missings #brule
-  analysis_set[, lf_region := region]
-  analysis_set[is.na(lf_region) & lf_county %in% p_reg_nc, lf_region := "Northcentral"]
-  analysis_set[is.na(lf_region) & lf_county %in% p_reg_ne, lf_region := "Northeast"]
-  analysis_set[is.na(lf_region) & lf_county %in% p_reg_nw, lf_region := "Northwest"]
-  analysis_set[is.na(lf_region) & lf_county %in% p_reg_se, lf_region := "Southeast"]
-  analysis_set[is.na(lf_region) & lf_county %in% p_reg_s, lf_region := "South"]
-  analysis_set[is.na(lf_region) & lf_county %in% p_reg_w, lf_region := "West"]
-  analysis_set[is.na(lf_region) & lf_county == "Milwaukee", lf_region := "Milwaukee"]
+  stacked_data_lscores[, lf_region := region]
+  stacked_data_lscores[is.na(lf_region) & lf_county %in% p_reg_nc, lf_region := "Northcentral"]
+  stacked_data_lscores[is.na(lf_region) & lf_county %in% p_reg_ne, lf_region := "Northeast"]
+  stacked_data_lscores[is.na(lf_region) & lf_county %in% p_reg_nw, lf_region := "Northwest"]
+  stacked_data_lscores[is.na(lf_region) & lf_county %in% p_reg_se, lf_region := "Southeast"]
+  stacked_data_lscores[is.na(lf_region) & lf_county %in% p_reg_s, lf_region := "South"]
+  stacked_data_lscores[is.na(lf_region) & lf_county %in% p_reg_w, lf_region := "West"]
+  stacked_data_lscores[is.na(lf_region) & lf_county == "Milwaukee", lf_region := "Milwaukee"]
+
+###################################
+# add additional analysis dummies #
+###################################
+
+  # rename grade var to dummy
+  setnames(stacked_data_lscores, "grade_level_cd", "grade")
+  
+  # create new placement type var to dummy #brule
+  stacked_data_lscores[dcf_plcmt_type == "Foster Home (Non-Relative)", p_type := "fhome_nonrel"]
+  stacked_data_lscores[dcf_plcmt_type == "Foster Home (Relative)", p_type := "fhome_rel"]
+  stacked_data_lscores[dcf_plcmt_type == "Group Home", p_type := "group_home"]
+  stacked_data_lscores[dcf_plcmt_type == "RCC", p_type := "rcc"]
+  stacked_data_lscores[is.na(dcf_plcmt_type) & flag_cur_plcmt == 1, p_type := "other"]
+
+  # adjust region var to dummy
+  stacked_data_lscores[lf_region == "Milwaukee", lf_region := "mke"]
+  stacked_data_lscores[lf_region == "Northcentral", lf_region := "nc"]
+  stacked_data_lscores[lf_region == "Northeast", lf_region := "ne"]
+  stacked_data_lscores[lf_region == "Northwest", lf_region := "nw"]
+  stacked_data_lscores[lf_region == "South", lf_region := "s"]
+  stacked_data_lscores[lf_region == "Southeast", lf_region := "se"]
+  stacked_data_lscores[lf_region == "West", lf_region := "w"]
+
+  # convert county var to lowercase and one word to dummy
+  stacked_data_lscores[, lf_county := tolower(lf_county)]
+  stacked_data_lscores[, lf_county := gsub(" ", "_", lf_county)]
+  
+  # dummy necessary vars
+  out_dummy <- db_dummy(stacked_data_lscores, c("acad_year", "grade", "p_type", "lf_region", "lf_county"))
+  
+  # save output from dummy function
+  analysis_set <- out_dummy$out_data_dummy
 
 ##########
 # export #
@@ -259,10 +308,11 @@
   if (p_opt_exp == 1) { 
     
     save(analysis_set, file = "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata")
-    # ea_write(analysis_set, "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.csv")
+    ea_write(analysis_set, "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.csv")
     
     ea_write(ohc_ids_merge, "X:/LFS-Education Outcomes/qc/ohc_merged_ids.csv")
     ea_write(a_merge_stats, "X:/LFS-Education Outcomes/qc/ohc_merged_rates.csv")
+    ea_write(out_dummy$out_dummy_freqs, "X:/LFS-Education Outcomes/qc/dummy_freqs.csv")
 
   }
 
