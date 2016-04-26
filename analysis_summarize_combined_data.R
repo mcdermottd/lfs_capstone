@@ -16,7 +16,6 @@
   ea_start()
 
   # load packages
-  library(ggplot2)
   library(data.table)
 
 #############
@@ -60,24 +59,24 @@
 # examine schools in data set #
 ###############################
   
-    # count the number of schools in overall data
-    school_counts <- analysis_set[, list(n_schools = uniqueN(paste0(dist_acctbl_code_cd, sch_acctbl_code_cd)))]
-    school_counts_hs <- analysis_set_hs[, list(n_schools = uniqueN(paste0(dist_acctbl_code_cd, sch_acctbl_code_cd)))]
+    # count the number of schools overall
+    sch_count <- analysis_set[, list(n_schools = uniqueN(paste0(dist_acctbl_code_cd, sch_acctbl_code_cd)))]
+    sch_count_hs <- analysis_set_hs[, list(n_schools = uniqueN(paste0(dist_acctbl_code_cd, sch_acctbl_code_cd)))]
 
-    # count the number of schools in overal data
-    school_counts_reg <- analysis_set[, list(n_schools = uniqueN(paste0(dist_acctbl_code_cd, sch_acctbl_code_cd))), by = lf_region]
-    school_counts_reg_hs <- analysis_set_hs[, list(n_schools = uniqueN(paste0(dist_acctbl_code_cd, sch_acctbl_code_cd))), by = lf_region]
+    # count the number of schools by region
+    sch_count_reg <- analysis_set[, list(n_schools = uniqueN(paste0(dist_acctbl_code_cd, sch_acctbl_code_cd))), by = lf_region]
+    sch_count_reg_hs <- analysis_set_hs[, list(n_schools = uniqueN(paste0(dist_acctbl_code_cd, sch_acctbl_code_cd))), by = lf_region]
 
     # add vars to stack
-    school_counts[, ":="(sch_type = "all", lf_region = "all")]
-    school_counts_hs[, ":="(sch_type = "hs", lf_region = "all")]
-    school_counts_reg[, sch_type := "all"]
-    school_counts_reg_hs[, sch_type := "hs"]
+    sch_count[, ":="(sch_type = "all", lf_region = "all")]
+    sch_count_hs[, ":="(sch_type = "hs", lf_region = "all")]
+    sch_count_reg[, sch_type := "all"]
+    sch_count_reg_hs[, sch_type := "hs"]
     
     # stack together
-    school_counts_all <- rbind(school_counts, school_counts_hs)
-    school_counts_all <- rbind(school_counts_all, school_counts_reg)
-    school_counts_all <- rbind(school_counts_all, school_counts_reg_hs)
+    stacked_sch_count <- rbind(sch_count, sch_count_hs)
+    stacked_sch_count <- rbind(stacked_sch_count, sch_count_reg)
+    stacked_sch_count <- rbind(stacked_sch_count, sch_count_reg_hs)
 
 ################################
 # examine overall demographics #
@@ -127,6 +126,22 @@
                                          per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
                                          per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
                               by = c("flag_ohc", "flag_compare_frl")]
+
+  # add vars to stack
+  a_demo_overall[, set := "overall"]
+  a_demo_compare[, set := "compare"]
+  a_demo_compare_frl[, set := "frl"]
+
+  # stack together
+  stacked_demo_compare <- rbind(a_demo_overall, a_demo_compare, fill = TRUE)
+  stacked_demo_compare <- rbind(stacked_demo_compare, a_demo_compare_frl, fill = TRUE)
+  
+  # reorder vars
+  ea_colorder(stacked_demo_compare, c("set", "flag_ohc", "flag_compare_frl"))
+
+#########################################################
+# examine demographics for hs sub-sample (grade 8 - 12) #
+#########################################################
   
   # calc overall demo, hs subset, ohc status
   a_demo_compare_hs <- demo_set_hs[, list(n_obs = .N,
@@ -156,6 +171,17 @@
                                                per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
                                   by = c("flag_ohc", "flag_compare_frl")]
 
+  
+  # add vars to stack
+  a_demo_compare_hs[, set := "compare"]
+  a_demo_compare_hs_frl[, set := "frl"]
+
+  # stack together
+  stacked_demo_compare_hs <- rbind(a_demo_compare_hs, a_demo_compare_hs_frl, fill = TRUE)
+
+  # reorder vars
+  ea_colorder(stacked_demo_compare_hs, c("set", "flag_ohc", "flag_compare_frl"))
+  
 ##########################################
 # create long ohc demo data to summarize #
 ##########################################
@@ -233,13 +259,80 @@
                                               var = round(var(value), 2),
                                               sd = round(sd(value), 2)),
                                        by = c("variable", "d_race_white")]
-  
-####################################################
-# examine demographics and placements by acad year #
-####################################################
+
+  # add vars to stack
+  a_ohc_stats_overall[, set := "overall"]
+  a_ohc_stats_hs_overall[, set := "hs"]
+  a_ohc_by_gender_hs[, set := "hs_gender"]
+  a_ohc_by_race_hs[, set := "hs_race"]
+
+  # stack together
+  stacked_ohc_compare <- rbind(a_ohc_stats_overall, a_ohc_stats_hs_overall, fill = TRUE)
+  stacked_ohc_compare <- rbind(stacked_ohc_compare, a_ohc_by_gender_hs, fill = TRUE)
+  stacked_ohc_compare <- rbind(stacked_ohc_compare, a_ohc_by_race_hs, fill = TRUE)
+
+  # reorder vars
+  ea_colorder(stacked_ohc_compare, c("set", "d_male", "d_race_white"))
+
+########################################################
+# examine number of placements - by year, type, region #
+########################################################
   
   # create set with only placement years
   plcmt_data_hs <- subset(analysis_set_hs, flag_cur_plcmt == 1)
+  
+  # calc number of placement types
+  a_num_plcmts <- plcmt_data_hs[, list(n_plcmts = .N,
+                                       n_fhome_nonrel = sum(p_type == "fhome_nonrel"),
+                                       n_fhome_rel = sum(p_type == "fhome_rel"),
+                                       n_group_home = sum(p_type == "group_home"),
+                                       n_rcc = sum(p_type == "rcc"),
+                                       n_other = sum(p_type == "other"))]
+  
+  # calc number of placement types by acad yr
+  a_num_plcmts_yr <- plcmt_data_hs[, list(n_plcmts = .N,
+                                           n_fhome_nonrel = sum(p_type == "fhome_nonrel"),
+                                           n_fhome_rel = sum(p_type == "fhome_rel"),
+                                           n_group_home = sum(p_type == "group_home"),
+                                           n_rcc = sum(p_type == "rcc"),
+                                           n_other = sum(p_type == "other")),
+                                   by = acad_year]
+  
+  # calc number of placement types by region
+  a_num_plcmts_reg <- plcmt_data_hs[, list(n_plcmts = .N,
+                                           n_fhome_nonrel = sum(p_type == "fhome_nonrel"),
+                                           n_fhome_rel = sum(p_type == "fhome_rel"),
+                                           n_group_home = sum(p_type == "group_home"),
+                                           n_rcc = sum(p_type == "rcc"),
+                                           n_other = sum(p_type == "other")),
+                                    by = lf_region]
+
+  # calc number of placement types by acad yr and region
+  a_num_plcmts_yr_reg <- plcmt_data_hs[, list(n_plcmts = .N,
+                                             n_fhome_nonrel = sum(p_type == "fhome_nonrel"),
+                                             n_fhome_rel = sum(p_type == "fhome_rel"),
+                                             n_group_home = sum(p_type == "group_home"),
+                                             n_rcc = sum(p_type == "rcc"),
+                                             n_other = sum(p_type == "other")),
+                                       by = c("acad_year", "lf_region")]
+      
+  # add vars to stack
+  a_num_plcmts[, set := "overall"]
+  a_num_plcmts_yr[, set := "acad_year"]
+  a_num_plcmts_reg[, set := "region"]
+  a_num_plcmts_yr_reg[, set := "acad_yr_reg"]
+
+  # stack together
+  stacked_num_plcmts <- rbind(a_num_plcmts, a_num_plcmts_yr, fill = TRUE)
+  stacked_num_plcmts <- rbind(stacked_num_plcmts, a_num_plcmts_reg, fill = TRUE)
+  stacked_num_plcmts <- rbind(stacked_num_plcmts, a_num_plcmts_yr_reg, fill = TRUE)
+
+  # reorder vars
+  ea_colorder(stacked_num_plcmts, c("set", "acad_year", "lf_region"))
+  
+#######################################################
+# examine demographics and placements characteristics #
+#######################################################
 
   # create var for avg. length of placement
   plcmt_data_hs[, plcmt_length_acad := tot_plcmt_days_acad / lf_n_plcmt_acad]
@@ -258,10 +351,6 @@
                                            avg_plcmt_length = round(mean(plcmt_length_acad), 3)),
                                        by = acad_year]
 
-#######################################
-# examine placement type and location #
-#######################################
-
   # calc stats of ohc placements by plcmt type
   a_plcmt_by_type_hs <- plcmt_data_hs[, list(n_obs = .N,
                                              avg_age = round(mean(age_in_years_cd, na.rm = TRUE), 3),
@@ -278,135 +367,46 @@
   
   # calc stats of ohc placements by region
   a_plcmt_by_region_hs <- plcmt_data_hs[, list(n_obs = .N,
-                                                   avg_age = round(mean(age_in_years_cd, na.rm = TRUE), 3),
-                                                   per_male = round(mean(d_male, na.rm = TRUE), 3),
-                                                   per_elp = round(mean(d_elp, na.rm = TRUE), 3),
-                                                   per_sped = round(mean(d_sped, na.rm = TRUE), 3),
-                                                   per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
-                                                   per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
-                                                   per_white = round(mean(d_race_white, na.rm = TRUE), 3),
-                                                   avg_plcmts = round(mean(lf_n_plcmt_acad), 3),
-                                                   avg_plcmt_days = round(mean(tot_plcmt_days_acad), 3),
-                                                   avg_plcmt_length = round(mean(plcmt_length_acad), 3)),
-                                           by = lf_region]
+                                               avg_age = round(mean(age_in_years_cd, na.rm = TRUE), 3),
+                                               per_male = round(mean(d_male, na.rm = TRUE), 3),
+                                               per_elp = round(mean(d_elp, na.rm = TRUE), 3),
+                                               per_sped = round(mean(d_sped, na.rm = TRUE), 3),
+                                               per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
+                                               per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
+                                               per_white = round(mean(d_race_white, na.rm = TRUE), 3),
+                                               avg_plcmts = round(mean(lf_n_plcmt_acad), 3),
+                                               avg_plcmt_days = round(mean(tot_plcmt_days_acad), 3),
+                                               avg_plcmt_length = round(mean(plcmt_length_acad), 3)),
+                                        by = lf_region]
+
+  # add vars to stack
+  a_plcmt_by_yr_hs[, set := "acad_year"]
+  a_plcmt_by_type_hs[, set := "ptype"]
+  a_plcmt_by_region_hs[, set := "region"]
+
+  # stack together
+  stacked_plcmt_info <- rbind(a_plcmt_by_yr_hs, a_plcmt_by_type_hs, fill = TRUE)
+  stacked_plcmt_info <- rbind(stacked_plcmt_info, a_plcmt_by_region_hs, fill = TRUE)
+
+  # reorder vars
+  ea_colorder(stacked_plcmt_info, c("set", "acad_year", "p_type", "lf_region"))
   
-  # freq of placement type by year
-  a_plcmt_type_yr_hs <- ea_table(plcmt_data_hs, c("acad_year", "p_type"))
-
-  # freq of placement region by year
-  a_plcmt_region_yr_hs <- ea_table(plcmt_data_hs, c("acad_year", "lf_region"))
-
-#########################
-# plot ohc info overall #
-#########################
-  
-  # set up base plot attributes / theme 
-  plot_attributes <- theme( plot.background = element_rect(fill = "lightgrey"),
-                            panel.grid.major.x = element_line(color = "gray90"), 
-                            panel.grid.minor  = element_blank(),
-                            panel.background = element_rect(fill = "white", colour = "black") , 
-                            panel.grid.major.y = element_line(color = "gray90"),
-                            text = element_text(size = 20),
-                            plot.title = element_text(vjust = 0, colour = "black", face = "bold", size = 25))
-
-  # create set with only placement years
-  plcmt_data_hs <- subset(child_demo_data_hs, flag_ohc == 1)
-  
-  # histogram - total ohc days (30 day bins, <= 1825 days)
-  plot_hist_ohc_days_hs <- ggplot(data = plcmt_data_hs, aes(x = tot_ohc_days)) + 
-                                   geom_histogram(binwidth = 30, colour = "black", fill = "dodgerblue4") +
-                                   labs(x = "Days in OHC", y = "Number of Children", 
-                                        title = "Total Days in Out-of-Home Care") + 
-                                   plot_attributes
-  
-  # histogram - total ohc placements (1 day bins, <= 20 placements)
-  plot_hist_ohc_plcmts_hs <- ggplot(data = subset(plcmt_data_hs, n_plcmt_tot <= 20), aes(x = n_plcmt_tot)) + 
-                                     geom_histogram(binwidth = 1, colour = "black", fill = "dodgerblue4") +
-                                     labs(x = "Number of Placements", y = "Number of Children", 
-                                          title = "Total Placements in Out-of-Home Care") + 
-                                     plot_attributes
-  
-  # histogram - avg plcmt length (15 day bins, <= 750 days)
-  plot_hist_avg_days_plcmt_hs <- ggplot(data = subset(plcmt_data_hs, avg_days_plcmt <= 750), aes(x = avg_days_plcmt)) + 
-                                         geom_histogram(binwidth = 15, colour = "black", fill = "dodgerblue4") +
-                                         labs(x = "Days Per Placement", y = "Number of Children", 
-                                              title = "Average Length of Out-of-Home Care Placement - Overall") + 
-                                         plot_attributes
-
-####################################
-# plot placement info by acad year #
-####################################
-
-  # histogram - total placements in acad year (<= 15 placements)
-  plot_hist_plcmt_acad_hs <- ggplot(data = subset(plcmt_yr_data_hs, n_plcmt_tot <= 15), aes(x = n_plcmt_acad)) + 
-                                     geom_histogram(binwidth = 1, colour = "black", fill = "dodgerblue4") +
-                                     labs(x = "Number of Placements", y = "Number of Children", 
-                                          title = "Placements in Out-of-Home Care Per Academic Year") + 
-                                     plot_attributes
-  
-  # bar plot - total placements by year and placement type
-  plot_bar_plcmts_by_yr_type_hs <- ggplot(subset(a_plcmt_type_yr_hs, !is.na(dcf_plcmt_type)), aes(acad_year, count)) + 
-                                          geom_bar(stat = "identity", position = "dodge", aes(fill = dcf_plcmt_type)) +
-                                       labs(x = "Academic Year", y = "Number of Placements", 
-                                            title = "Out-of-Home Care Placements by Type \n Per Academic Year") + 
-                                       scale_fill_discrete(name = "Placement Type") +
-                                       plot_attributes
-                                       
-  # histogram - total plcmt days in acad year (20 day bins)
-  plot_hist_plcmt_days_acad_hs <- ggplot(data = plcmt_yr_data_hs, aes(x = tot_plcmt_days_acad)) + 
-                                       geom_histogram(binwidth = 20, colour = "black", fill = "dodgerblue4") +
-                                       labs(x = "Number of Placement Days", y = "Number of Children",
-                                            title = "Out-of-Home Care Placement Days Per Academic Year") + 
-                                       plot_attributes
-
-  # histogram - avg plcmt length in acad year (15 day bins)
-  plot_hist_avg_days_acad_hs <- ggplot(data = plcmt_yr_data_hs, aes(x = avg_days_plcmt_acad)) + 
-                                     geom_histogram(binwidth = 10, colour = "black", fill = "dodgerblue4") +
-                                     labs(x = "Days Per Placement", y = "Number of Children", 
-                                          title = "Average Days Per Out-of-Home Care Placement Per Academic Year") + 
-                                     plot_attributes
-
 #####################
 # format and export #
 #####################
 
   # set output director
-  p_dir_out <- "X:/LFS-Education Outcomes/qc/second_draft_exhibits/descriptive/"
-  
-  # set height and width of plots
-  p_height <- 28
-  p_width <- 28
+  p_dir_out <- "X:/LFS-Education Outcomes/qc/final_draft_exhibits/descriptive/"
 
   # export
   if (p_opt_exp == 1) { 
     
-    ea_write(hs_student_ids, "X:/LFS-Education Outcomes/qc/hs_student_ids.csv")
-
-    ea_write(a_demo_overall, paste0(p_dir_out, "demo_overall.csv"))
-    ea_write(a_demo_compare, paste0(p_dir_out, "demo_by_ohc.csv"))
-    ea_write(a_demo_compare_frl, paste0(p_dir_out, "demo_by_ohc_frl.csv"))
-    ea_write(a_demo_compare_hs, paste0(p_dir_out, "demo_by_ohc_hs.csv"))
-    ea_write(a_demo_compare_hs_frl, paste0(p_dir_out, "demo_by_ohc_hs_frl.csv"))
-
-    ea_write(a_ohc_overall, paste0(p_dir_out, "ohc_overall.csv"))
-    ea_write(a_ohc_overall_hs, paste0(p_dir_out, "ohc_overall_hs.csv"))
-    ea_write(a_ohc_by_gender_hs, paste0(p_dir_out, "ohc_by_gender_hs.csv"))
-    ea_write(a_ohc_by_race_hs, paste0(p_dir_out, "ohc_by_race_hs.csv"))
-
-    ea_write(a_plcmt_by_yr_hs, paste0(p_dir_out, "plcmts_by_yr_hs.csv"))
-    ea_write(a_plcmt_by_type_hs, paste0(p_dir_out, "plcmts_by_type_hs.csv"))
-    ea_write(a_plcmt_by_region_hs, paste0(p_dir_out, "plcmts_by_region_hs.csv"))
-    ea_write(a_plcmt_type_yr_hs, paste0(p_dir_out, "freq_plcmt_type_by_yr_hs.csv"))
-    ea_write(a_plcmt_region_yr_hs, paste0(p_dir_out, "freq_plcmt_region_by_yr_hs.csv"))
-    
-    ggsave(paste0(p_dir_out, "hist_ohc_days_overall.png"), plot = plot_hist_ohc_days_hs, width = p_width, height = p_height, units = "cm")
-    ggsave(paste0(p_dir_out, "hist_plcmts_overall.png"), plot = plot_hist_ohc_plcmts_hs, width = p_width, height = p_height, units = "cm")
-    ggsave(paste0(p_dir_out, "hist_avg_plcmt_days_overall.png"), plot = plot_hist_avg_days_plcmt_hs, width = p_width, height = p_height, units = "cm")
-
-    ggsave(paste0(p_dir_out, "hist_plcmts_acad.png"), plot = plot_hist_plcmt_acad_hs,  width = p_width, height = p_height, units = "cm")
-    ggsave(paste0(p_dir_out, "bar_plcmts_acad_by_yr_type.png"), plot = plot_bar_plcmts_by_yr_type_hs, width = p_width, height = p_height, units = "cm")
-    ggsave(paste0(p_dir_out, "hist_plcmt_days_acad.png"), plot = plot_hist_plcmt_days_acad_hs,  width = p_width, height = p_height, units = "cm")
-    ggsave(paste0(p_dir_out, "hist_avg_plcmt_days_acad.png"), plot = plot_hist_avg_days_acad_hs, width = p_width, height = p_height, units = "cm")
+    ea_write(stacked_sch_count, paste0(p_dir_out, "school_counts.csv"))
+    ea_write(stacked_demo_compare, paste0(p_dir_out, "demo_compare_overall.csv"))
+    ea_write(stacked_demo_compare_hs, paste0(p_dir_out, "demo_compare_hs.csv"))
+    ea_write(stacked_ohc_compare, paste0(p_dir_out, "ohc_compare.csv"))
+    ea_write(stacked_num_plcmts, paste0(p_dir_out, "num_plcmts_by_type.csv"))
+    ea_write(stacked_plcmt_info, paste0(p_dir_out, "plcmt_compare.csv"))
 
   }
   
