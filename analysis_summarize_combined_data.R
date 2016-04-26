@@ -41,14 +41,43 @@
   analysis_set <- copy(in_analysis_set)
   
   # sort by child id, placements, demographics, and academic year
-  setorder(analysis_set, lf_child_id, n_plcmt_acad, d_male, acad_year, na.last = TRUE)
+  setorder(analysis_set, lf_child_id, -flag_cur_plcmt, d_male, acad_year, na.last = TRUE)
+  
+  # create set with only hs students
+  analysis_set_hs <- subset(analysis_set, flag_hs == 1)
   
   # create set with one row per child, keeping rows with acad year info and demographics first #brule
   demo_set <- ea_no_dups(analysis_set, "lf_child_id")
+  demo_set_hs <- ea_no_dups(analysis_set_hs, "lf_child_id")
   
   # sort sets by academic year
   setorder(analysis_set, acad_year) 
+  setorder(analysis_set_hs, acad_year) 
   setorder(demo_set, acad_year) 
+  setorder(demo_set_hs, acad_year) 
+
+###############################
+# examine schools in data set #
+###############################
+  
+    # count the number of schools in overall data
+    school_counts <- analysis_set[, list(n_schools = uniqueN(paste0(dist_acctbl_code_cd, sch_acctbl_code_cd)))]
+    school_counts_hs <- analysis_set_hs[, list(n_schools = uniqueN(paste0(dist_acctbl_code_cd, sch_acctbl_code_cd)))]
+
+    # count the number of schools in overal data
+    school_counts_reg <- analysis_set[, list(n_schools = uniqueN(paste0(dist_acctbl_code_cd, sch_acctbl_code_cd))), by = lf_region]
+    school_counts_reg_hs <- analysis_set_hs[, list(n_schools = uniqueN(paste0(dist_acctbl_code_cd, sch_acctbl_code_cd))), by = lf_region]
+
+    # add vars to stack
+    school_counts[, ":="(sch_type = "all", lf_region = "all")]
+    school_counts_hs[, ":="(sch_type = "hs", lf_region = "all")]
+    school_counts_reg[, sch_type := "all"]
+    school_counts_reg_hs[, sch_type := "hs"]
+    
+    # stack together
+    school_counts_all <- rbind(school_counts, school_counts_hs)
+    school_counts_all <- rbind(school_counts_all, school_counts_reg)
+    school_counts_all <- rbind(school_counts_all, school_counts_reg_hs)
 
 ################################
 # examine overall demographics #
@@ -97,70 +126,68 @@
                                          per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
                                          per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
                                          per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
-                              by = c("flag_ohc", "compare_frl")]
+                              by = c("flag_ohc", "flag_compare_frl")]
   
   # calc overall demo, hs subset, ohc status
-  a_demo_compare_hs <- demo_set[flag_hs == 1, list(n_obs = .N,
-                                                   per_male = round(mean(d_male, na.rm = TRUE), 3),
-                                                   per_elp = round(mean(d_elp, na.rm = TRUE), 3),
-                                                   per_sped = round(mean(d_sped, na.rm = TRUE), 3),
-                                                   per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
-                                                   per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
-                                                   per_white = round(mean(d_race_white, na.rm = TRUE), 3),
-                                                   per_black = round(mean(d_race_black, na.rm = TRUE), 3),
-                                                   per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
-                                                   per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
-                                                   per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
-                                            by = c("flag_ohc")]
+  a_demo_compare_hs <- demo_set_hs[, list(n_obs = .N,
+                                           per_male = round(mean(d_male, na.rm = TRUE), 3),
+                                           per_elp = round(mean(d_elp, na.rm = TRUE), 3),
+                                           per_sped = round(mean(d_sped, na.rm = TRUE), 3),
+                                           per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
+                                           per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
+                                           per_white = round(mean(d_race_white, na.rm = TRUE), 3),
+                                           per_black = round(mean(d_race_black, na.rm = TRUE), 3),
+                                           per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
+                                           per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
+                                           per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
+                                    by = c("flag_ohc")]
   
   # calc overall demo, hs subset, ohc status and frl
-  a_demo_compare_hs_frl <- child_demo_data_hs[, list(n_obs = .N,
-                                                       per_male = round(mean(d_male, na.rm = TRUE), 3),
-                                                       per_elp = round(mean(d_elp, na.rm = TRUE), 3),
-                                                       per_sped = round(mean(d_sped, na.rm = TRUE), 3),
-                                                       per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
-                                                       per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
-                                                       per_white = round(mean(d_race_white, na.rm = TRUE), 3),
-                                                       per_black = round(mean(d_race_black, na.rm = TRUE), 3),
-                                                       per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
-                                                       per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
-                                                       per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
-                                          by = c("flag_ohc", "compare_frl")]
+  a_demo_compare_hs_frl <- demo_set_hs[, list(n_obs = .N,
+                                               per_male = round(mean(d_male, na.rm = TRUE), 3),
+                                               per_elp = round(mean(d_elp, na.rm = TRUE), 3),
+                                               per_sped = round(mean(d_sped, na.rm = TRUE), 3),
+                                               per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
+                                               per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
+                                               per_white = round(mean(d_race_white, na.rm = TRUE), 3),
+                                               per_black = round(mean(d_race_black, na.rm = TRUE), 3),
+                                               per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
+                                               per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
+                                               per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
+                                  by = c("flag_ohc", "flag_compare_frl")]
 
-############################
-# examine overall ohc info #
-############################
+##########################################
+# create long ohc demo data to summarize #
+##########################################
   
   # subset to data for melt
-  sub_ohc_data <- subset(child_demo_data, flag_ohc == 1, select = c(lf_child_id, flag_hs, n_ohc_tot, tot_ohc_days, avg_days_ohc, n_plcmt_tot, 
-                                                                    tot_plcmt_days, avg_days_plcmt, d_male, d_female, d_elp, d_sped, d_frl, d_fpl, 
-                                                                    d_rpl, d_race_white, d_race_indian, d_race_black, d_race_hispanic, d_race_asian))
+  sub_ohc_demo <- subset(demo_set, flag_ohc == 1, select = c(lf_child_id, n_ohc_tot, tot_ohc_days, lf_n_plcmt_tot, tot_plcmt_days, d_male, d_female,
+                                                             d_elp, d_sped, d_frl, d_fpl, d_rpl, d_race_white, d_race_black, d_race_hispanic, 
+                                                             d_race_asian, d_race_indian))
+  sub_ohc_demo_hs <- subset(demo_set_hs, flag_ohc == 1, select = c(lf_child_id, n_ohc_tot, tot_ohc_days, lf_n_plcmt_tot, tot_plcmt_days, d_male, 
+                                                                   d_female, d_elp, d_sped, d_frl, d_fpl, d_rpl, d_race_white, d_race_black, 
+                                                                   d_race_hispanic, d_race_asian, d_race_indian))
   
-  # melt ohc data long to summarize
-  ohc_data_long <- melt.data.table(sub_ohc_data, id.vars = c("lf_child_id", "flag_hs", "d_male", "d_female", "d_elp", "d_sped", "d_frl", "d_fpl",
-                                                             "d_rpl", "d_race_white", "d_race_indian", "d_race_black", "d_race_hispanic", 
-                                                             "d_race_asian"))
+  # create var for avg. length of placement
+  sub_ohc_demo[, plcmt_length := tot_plcmt_days / lf_n_plcmt_tot]
+  sub_ohc_demo_hs[, plcmt_length := tot_plcmt_days / lf_n_plcmt_tot]
 
+  # melt ohc data long to summarize
+  ohc_demo_long <- melt.data.table(sub_ohc_demo, id.vars = c("lf_child_id", "d_male", "d_female", "d_elp", "d_sped", "d_frl", "d_fpl", "d_rpl",
+                                                             "d_race_white", "d_race_black", "d_race_hispanic", "d_race_asian", "d_race_indian"))
+  ohc_demo_hs_long <- melt.data.table(sub_ohc_demo_hs, id.vars = c("lf_child_id", "d_male", "d_female", "d_elp", "d_sped", "d_frl", "d_fpl", "d_rpl",
+                                                                   "d_race_white", "d_race_black", "d_race_hispanic", "d_race_asian", 
+                                                                   "d_race_indian"))
   # remove NA values
-  ohc_data_long <- subset(ohc_data_long, !is.na(value))
-  
-  # create hs subset
-  ohc_data_long_hs <- subset(ohc_data_long, flag_hs == 1)
-  
-  # calc ohc stats overall
-  a_ohc_overall <- ohc_data_long[, list(n_obs = length(value),
-                                         min = min(value),
-                                         q25 = quantile(value, .25),
-                                         q50 = quantile(value, .5),
-                                         q75 = quantile(value, .75),
-                                         max = max(value),
-                                         mean = round(mean(value), 3),
-                                         var = round(var(value), 3),
-                                         sd = round(sd(value), 3)), 
-                                 by = c("variable")]
+  ohc_demo_long <- subset(ohc_demo_long, !is.na(value))
+  ohc_demo_hs_long <- subset(ohc_demo_hs_long, !is.na(value))
+
+##################################
+# examine overall ohc statistics #
+##################################
   
   # calc ohc stats overall
-  a_ohc_overall_hs <- ohc_data_long_hs[, list(n_obs = length(value),
+  a_ohc_stats_overall <- ohc_demo_long[, list(n_obs = length(value),
                                                min = min(value),
                                                q25 = quantile(value, .25),
                                                q50 = quantile(value, .5),
@@ -171,28 +198,40 @@
                                                sd = round(sd(value), 3)), 
                                        by = c("variable")]
   
+  # calc ohc stats overall
+  a_ohc_stats_hs_overall <- ohc_demo_hs_long[, list(n_obs = length(value),
+                                                     min = min(value),
+                                                     q25 = quantile(value, .25),
+                                                     q50 = quantile(value, .5),
+                                                     q75 = quantile(value, .75),
+                                                     max = max(value),
+                                                     mean = round(mean(value), 3),
+                                                     var = round(var(value), 3),
+                                                     sd = round(sd(value), 3)), 
+                                             by = c("variable")]
+  
   # calc ohc stats by gender
-  a_ohc_by_gender_hs <- ohc_data_long_hs[!is.na(d_male), list(n_obs = length(value),
-                                                              min = min(value),
-                                                              q25 = quantile(value, .25),
-                                                              q50 = quantile(value, .5),
-                                                              q75 = quantile(value, .75),
-                                                              max = max(value),
-                                                              mean = round(mean(value), 2),
-                                                              var = round(var(value), 2),
-                                                              sd = round(sd(value), 2)),
+  a_ohc_by_gender_hs <- ohc_demo_hs_long[, list(n_obs = length(value),
+                                                min = min(value),
+                                                q25 = quantile(value, .25),
+                                                q50 = quantile(value, .5),
+                                                q75 = quantile(value, .75),
+                                                max = max(value),
+                                                mean = round(mean(value), 2),
+                                                var = round(var(value), 2),
+                                                sd = round(sd(value), 2)),
                                          by = c("variable", "d_male")]
 
   # calc ohc stats by race (white vs non-white)
-  a_ohc_by_race_hs <- ohc_data_long_hs[!is.na(d_male), list(n_obs = length(value),
-                                                            min = min(value),
-                                                            q25 = quantile(value, .25),
-                                                            q50 = quantile(value, .5),
-                                                            q75 = quantile(value, .75),
-                                                            max = max(value),
-                                                            mean = round(mean(value), 2),
-                                                            var = round(var(value), 2),
-                                                            sd = round(sd(value), 2)),
+  a_ohc_by_race_hs <- ohc_demo_hs_long[, list(n_obs = length(value),
+                                              min = min(value),
+                                              q25 = quantile(value, .25),
+                                              q50 = quantile(value, .5),
+                                              q75 = quantile(value, .75),
+                                              max = max(value),
+                                              mean = round(mean(value), 2),
+                                              var = round(var(value), 2),
+                                              sd = round(sd(value), 2)),
                                        by = c("variable", "d_race_white")]
   
 ####################################################
@@ -200,20 +239,23 @@
 ####################################################
   
   # create set with only placement years
-  plcmt_yr_data_hs <- subset(acad_yr_data_hs, flag_ohc_yr == 1)
+  plcmt_data_hs <- subset(analysis_set_hs, flag_cur_plcmt == 1)
+
+  # create var for avg. length of placement
+  plcmt_data_hs[, plcmt_length_acad := tot_plcmt_days_acad / lf_n_plcmt_acad]
 
   # calc stats of ohc placements by year
-  a_plcmt_by_yr_hs <- plcmt_yr_data_hs[, list(n_obs = .N,
-                                               avg_age = round(mean(age_in_years_cd, na.rm = TRUE), 3),
-                                               per_male = round(mean(d_male, na.rm = TRUE), 3),
-                                               per_elp = round(mean(d_elp, na.rm = TRUE), 3),
-                                               per_sped = round(mean(d_sped, na.rm = TRUE), 3),
-                                               per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
-                                               per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
-                                               per_white = round(mean(d_race_white, na.rm = TRUE), 3),
-                                               avg_plcmts = round(mean(n_plcmt_acad), 3),
-                                               avg_plcmt_days = round(mean(tot_plcmt_days_acad), 3),
-                                               avg_plcmt_length = round(mean(avg_days_plcmt_acad), 3)),
+  a_plcmt_by_yr_hs <- plcmt_data_hs[, list(n_obs = .N,
+                                           avg_age = round(mean(age_in_years_cd, na.rm = TRUE), 3),
+                                           per_male = round(mean(d_male, na.rm = TRUE), 3),
+                                           per_elp = round(mean(d_elp, na.rm = TRUE), 3),
+                                           per_sped = round(mean(d_sped, na.rm = TRUE), 3),
+                                           per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
+                                           per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
+                                           per_white = round(mean(d_race_white, na.rm = TRUE), 3),
+                                           avg_plcmts = round(mean(lf_n_plcmt_acad), 3),
+                                           avg_plcmt_days = round(mean(tot_plcmt_days_acad), 3),
+                                           avg_plcmt_length = round(mean(plcmt_length_acad), 3)),
                                        by = acad_year]
 
 #######################################
@@ -221,21 +263,21 @@
 #######################################
 
   # calc stats of ohc placements by plcmt type
-  a_plcmt_by_type_hs <- plcmt_yr_data_hs[, list(n_obs = .N,
-                                                 avg_age = round(mean(age_in_years_cd, na.rm = TRUE), 3),
-                                                 per_male = round(mean(d_male, na.rm = TRUE), 3),
-                                                 per_elp = round(mean(d_elp, na.rm = TRUE), 3),
-                                                 per_sped = round(mean(d_sped, na.rm = TRUE), 3),
-                                                 per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
-                                                 per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
-                                                 per_white = round(mean(d_race_white, na.rm = TRUE), 3),
-                                                 avg_plcmts = round(mean(n_plcmt_acad), 3),
-                                                 avg_plcmt_days = round(mean(tot_plcmt_days_acad), 3),
-                                                 avg_plcmt_length = round(mean(avg_days_plcmt_acad), 3)),
-                                         by = dcf_plcmt_type]
+  a_plcmt_by_type_hs <- plcmt_data_hs[, list(n_obs = .N,
+                                             avg_age = round(mean(age_in_years_cd, na.rm = TRUE), 3),
+                                             per_male = round(mean(d_male, na.rm = TRUE), 3),
+                                             per_elp = round(mean(d_elp, na.rm = TRUE), 3),
+                                             per_sped = round(mean(d_sped, na.rm = TRUE), 3),
+                                             per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
+                                             per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
+                                             per_white = round(mean(d_race_white, na.rm = TRUE), 3),
+                                             avg_plcmts = round(mean(lf_n_plcmt_acad), 3),
+                                             avg_plcmt_days = round(mean(tot_plcmt_days_acad), 3),
+                                             avg_plcmt_length = round(mean(plcmt_length_acad), 3)),
+                                      by = p_type]
   
   # calc stats of ohc placements by region
-  a_plcmt_by_region_hs <- plcmt_yr_data_hs[, list(n_obs = .N,
+  a_plcmt_by_region_hs <- plcmt_data_hs[, list(n_obs = .N,
                                                    avg_age = round(mean(age_in_years_cd, na.rm = TRUE), 3),
                                                    per_male = round(mean(d_male, na.rm = TRUE), 3),
                                                    per_elp = round(mean(d_elp, na.rm = TRUE), 3),
@@ -243,16 +285,16 @@
                                                    per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
                                                    per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
                                                    per_white = round(mean(d_race_white, na.rm = TRUE), 3),
-                                                   avg_plcmts = round(mean(n_plcmt_acad), 3),
+                                                   avg_plcmts = round(mean(lf_n_plcmt_acad), 3),
                                                    avg_plcmt_days = round(mean(tot_plcmt_days_acad), 3),
-                                                   avg_plcmt_length = round(mean(avg_days_plcmt_acad), 3)),
-                                           by = region]
+                                                   avg_plcmt_length = round(mean(plcmt_length_acad), 3)),
+                                           by = lf_region]
   
   # freq of placement type by year
-  a_plcmt_type_yr_hs <- ea_table(plcmt_yr_data_hs, c("dcf_plcmt_type", "acad_year"))
+  a_plcmt_type_yr_hs <- ea_table(plcmt_data_hs, c("acad_year", "p_type"))
 
   # freq of placement region by year
-  a_plcmt_region_yr_hs <- ea_table(plcmt_yr_data_hs, c("region", "acad_year"))
+  a_plcmt_region_yr_hs <- ea_table(plcmt_data_hs, c("acad_year", "lf_region"))
 
 #########################
 # plot ohc info overall #
