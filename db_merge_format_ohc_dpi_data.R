@@ -24,8 +24,19 @@
 # set parms #
 #############
 
+  # create region strings (for recoding)
+  p_reg_nc <- c("Vilas", "Oneida", "Forest", "Lincoln", "Langlade", "Marathon", "Wood", "Portage", "Adams")
+  p_reg_ne <- c("Florence", "Marinette", "Menominee", "Oconto", "Shawano", "Waupaca", "Outagamie", "Brown", "Kewaunee", "Door", "Waushara", 
+                "Winnebago", "Calumet", "Manitowoc", "Green Lake", "Fond Du Lac", "Fond du Lac", "Sheboygan")
+  p_reg_nw <- c("Bayfield", "Ashland", "Iron", "Sawyer", "Price", "Taylor", "Douglas", "Burnett", "Washburn", "Polk", "Barron", "Rusk")
+  p_reg_se <- c("Walworth", "Racine", "Kenosha")
+  p_reg_s  <- c("Marquette", "Richland", "Sauk", "Columbia", "Dodge", "Washington", "Ozaukee", "Grant", "Iowa", "Dane", "Jefferson", "Waukesha",
+                "Lafayette", "Green", "Rock")
+  p_reg_w  <- c("St Croix", "Saint Croix", "Dunn", "Chippewa", "Pierce", "Pepin", "Eau Claire", "Clark", "Buffalo", "Trempealeau", "Jackson", 
+                "La Crosse", "Monroe", "Juneau", "Vernon", "Crawford")
+  
   # output toggle
-  p_opt_exp <- 1
+  p_opt_exp <- 0
 
 #############
 # load data #
@@ -188,7 +199,7 @@
   stacked_data[, flag_prior_plcmt := ifelse(is.na(n_plcmt_acad) & first_pstart_date < ymd(paste0((as.numeric(acad_year) - 1), "-06-01")), 1, 0)]
 
   # create frl / non-frl flags for comparison groups
-  stacked_data[, compare_frl := ifelse(flag_ohc == 0 & d_frl == 1, 1, 0)]
+  stacked_data[, flag_compare_frl := ifelse(flag_ohc == 0 & d_frl == 1, 1, 0)]
 
 ####################################
 # create additional placement vars #
@@ -199,17 +210,31 @@
   stacked_data[, change_vars] <- lapply(stacked_data[, change_vars, with = FALSE], as.numeric)
 
   # create truncated placement vars #brule
-  stacked_data[n_plcmt_tot > 20, lf_n_plcmt_tot := 20]
-  stacked_data[n_plcmt_acad > 10, lf_n_plcmt_acad := 10]
-
-  # create avg length (# of days) per placement vars
-  stacked_data[, avg_length_ohc := tot_ohc_days / n_ohc_tot]
-  stacked_data[, avg_length_plcmt := tot_plcmt_days / n_plcmt_tot]
-  stacked_data[, avg_length_plcmt_acad := tot_plcmt_days_acad / n_plcmt_acad]
+  stacked_data[, ":="(lf_n_plcmt_tot = n_plcmt_tot, lf_n_plcmt_acad = n_plcmt_acad)]
+  stacked_data[lf_n_plcmt_tot > 20, lf_n_plcmt_tot := 20]
+  stacked_data[lf_n_plcmt_acad > 10, lf_n_plcmt_acad := 10]
   
   # fill in 0 for missing ohc vars
-  stacked_data[flag_ohc == 0, c(change_vars, "avg_days_ohc", "avg_days_plcmt", "avg_days_plcmt_acad") := 0]
-  stacked_data[flag_cur_plcmt == 0, c("n_plcmt_acad", "tot_plcmt_days_acad", "lf_n_plcmt_acad", "avg_days_plcmt_acad") := 0]
+  stacked_data[flag_ohc == 0, c(change_vars) := 0]
+  stacked_data[flag_cur_plcmt == 0, c("n_plcmt_acad", "tot_plcmt_days_acad", "lf_n_plcmt_acad") := 0]
+
+###########################
+# fill in missing regions #
+###########################
+  
+  # combine county variables
+  stacked_data[, lf_county := provider_county]
+  stacked_data[is.na(lf_county), lf_county := sch_county_name]
+
+  # create regions for missings #brule
+  stacked_data[, lf_region := region]
+  stacked_data[is.na(lf_region) & lf_county %in% p_reg_nc, lf_region := "Northcentral"]
+  stacked_data[is.na(lf_region) & lf_county %in% p_reg_ne, lf_region := "Northeast"]
+  stacked_data[is.na(lf_region) & lf_county %in% p_reg_nw, lf_region := "Northwest"]
+  stacked_data[is.na(lf_region) & lf_county %in% p_reg_se, lf_region := "Southeast"]
+  stacked_data[is.na(lf_region) & lf_county %in% p_reg_s, lf_region := "South"]
+  stacked_data[is.na(lf_region) & lf_county %in% p_reg_w, lf_region := "West"]
+  stacked_data[is.na(lf_region) & lf_county == "Milwaukee", lf_region := "Milwaukee"]
 
 ################################################
 # merge leading scores for 7th and 9th graders #
@@ -237,35 +262,6 @@
   # create college-ready flag based on math score #brule
   stacked_data_lscores[, flag_col_rdy := ifelse(perf_level_math == 4, 1, 0)]
   stacked_data_lscores[, flag_col_rdy_nxt := ifelse(nxt_perf_level_math == 4, 1, 0)]
-
-###########################
-# fill in missing regions #
-###########################
-  
-  # combine county variables
-  stacked_data_lscores[, lf_county := provider_county]
-  stacked_data_lscores[is.na(lf_county), lf_county := sch_county_name]
-
-  # create region strings
-  p_reg_nc <- c("Vilas", "Oneida", "Forest", "Lincoln", "Langlade", "Marathon", "Wood", "Portage", "Adams")
-  p_reg_ne <- c("Florence", "Marinette", "Menominee", "Oconto", "Shawano", "Waupaca", "Outagamie", "Brown", "Kewaunee", "Door", "Waushara", 
-                "Winnebago", "Calumet", "Manitowoc", "Green Lake", "Fond Du Lac", "Fond du Lac", "Sheboygan")
-  p_reg_nw <- c("Bayfield", "Ashland", "Iron", "Sawyer", "Price", "Taylor", "Douglas", "Burnett", "Washburn", "Polk", "Barron", "Rusk")
-  p_reg_se <- c("Walworth", "Racine", "Kenosha")
-  p_reg_s <- c("Marquette", "Richland", "Sauk", "Columbia", "Dodge", "Washington", "Ozaukee", "Grant", "Iowa", "Dane", "Jefferson", "Waukesha", 
-               "Lafayette", "Green", "Rock")
-  p_reg_w <- c("St Croix", "Saint Croix", "Dunn", "Chippewa", "Pierce", "Pepin", "Eau Claire", "Clark", "Buffalo", "Trempealeau", "Jackson", 
-               "La Crosse", "Monroe", "Juneau", "Vernon", "Crawford")
-
-  # create regions for missings #brule
-  stacked_data_lscores[, lf_region := region]
-  stacked_data_lscores[is.na(lf_region) & lf_county %in% p_reg_nc, lf_region := "Northcentral"]
-  stacked_data_lscores[is.na(lf_region) & lf_county %in% p_reg_ne, lf_region := "Northeast"]
-  stacked_data_lscores[is.na(lf_region) & lf_county %in% p_reg_nw, lf_region := "Northwest"]
-  stacked_data_lscores[is.na(lf_region) & lf_county %in% p_reg_se, lf_region := "Southeast"]
-  stacked_data_lscores[is.na(lf_region) & lf_county %in% p_reg_s, lf_region := "South"]
-  stacked_data_lscores[is.na(lf_region) & lf_county %in% p_reg_w, lf_region := "West"]
-  stacked_data_lscores[is.na(lf_region) & lf_county == "Milwaukee", lf_region := "Milwaukee"]
 
 ###################################
 # add additional analysis dummies #
@@ -303,12 +299,20 @@
 ##########
 # export #
 ##########
+  
+  # copy analysis set to export
+  out_analysis_set <- copy(analysis_set)
+  
+  # reorder vars
+  ea_colorder(out_analysis_set, c("lf_child_id", "lds_student_key", "child_id", "acad_year", "flag_ohc", "flag_cur_plcmt", "flag_prior_plcmt", 
+                                  "flag_compare_frl", "flag_hs", "grade", "age_in_years_cd", "dist_acctbl_code_cd", "sch_acctbl_code_cd",
+                                  "lf_region", "lf_county"))
 
   # export
   if (p_opt_exp == 1) { 
     
-    save(analysis_set, file = "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata")
-    ea_write(analysis_set, "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.csv")
+    save(out_analysis_set, file = "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata")
+    ea_write(out_analysis_set, "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.csv")
     
     ea_write(ohc_ids_merge, "X:/LFS-Education Outcomes/qc/ohc_merged_ids.csv")
     ea_write(a_merge_stats, "X:/LFS-Education Outcomes/qc/ohc_merged_rates.csv")
