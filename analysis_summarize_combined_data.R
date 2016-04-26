@@ -30,89 +30,88 @@
 # load data #
 #############
 
-  # load child info
-  in_child_info <- ea_load("X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set_child_info.rdata")
-  
-  # load acad year info
-  in_acad_year_data <- ea_load("X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata")
+  # load analysis set
+  in_analysis_set <- ea_load("X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata")
 
 ###############
 # format data #
 ###############
 
-  # copy input sets
-  child_demo_data <- copy(in_child_info)
-  acad_yr_data <- copy(in_acad_year_data)
-
-  # change necessary vars to numeric
-  acad_yr_data[, c("n_plcmt_tot", "tot_plcmt_days", "tot_plcmt_days_acad", "n_plcmt_acad")] <- 
-    lapply(acad_yr_data[, c("n_plcmt_tot", "tot_plcmt_days", "tot_plcmt_days_acad", "n_plcmt_acad"), with = FALSE], as.numeric)
+  # make copy of analysis set
+  analysis_set <- copy(in_analysis_set)
   
-  # sort by academic year
-  setorder(acad_yr_data, acad_year)
+  # sort by child id, placements, demographics, and academic year
+  setorder(analysis_set, lf_child_id, n_plcmt_acad, d_male, acad_year, na.last = TRUE)
+  
+  # create set with one row per child, keeping rows with acad year info and demographics first #brule
+  demo_set <- ea_no_dups(analysis_set, "lf_child_id")
+  
+  # sort sets by academic year
+  setorder(analysis_set, acad_year) 
+  setorder(demo_set, acad_year) 
 
 ################################
 # examine overall demographics #
 ################################
 
   # calc overall demo summary
-  a_demo_overall <- child_demo_data[, list(n_obs = .N,
-                                           per_male = round(mean(d_male, na.rm = TRUE), 3),
-                                           per_elp = round(mean(d_elp, na.rm = TRUE), 3),
-                                           per_sped = round(mean(d_sped, na.rm = TRUE), 3),
-                                           per_frl = round(mean(d_frl, na.rm = TRUE), 3),
-                                           per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
-                                           per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
-                                           per_white = round(mean(d_race_white, na.rm = TRUE), 3),
-                                           per_black = round(mean(d_race_black, na.rm = TRUE), 3),
-                                           per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
-                                           per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
-                                           per_indian = round(mean(d_race_indian, na.rm = TRUE), 3))]
+  a_demo_overall <- demo_set[, list(n_obs = .N,
+                                     per_male = round(mean(d_male, na.rm = TRUE), 3),
+                                     per_elp = round(mean(d_elp, na.rm = TRUE), 3),
+                                     per_sped = round(mean(d_sped, na.rm = TRUE), 3),
+                                     per_frl = round(mean(d_frl, na.rm = TRUE), 3),
+                                     per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
+                                     per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
+                                     per_white = round(mean(d_race_white, na.rm = TRUE), 3),
+                                     per_black = round(mean(d_race_black, na.rm = TRUE), 3),
+                                     per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
+                                     per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
+                                     per_indian = round(mean(d_race_indian, na.rm = TRUE), 3))]
 
   # calc overall demo, ohc status
-  a_demo_compare <- child_demo_data[, list(n_obs = .N,
-                                           per_male = round(mean(d_male, na.rm = TRUE), 3),
-                                           per_elp = round(mean(d_elp, na.rm = TRUE), 3),
-                                           per_sped = round(mean(d_sped, na.rm = TRUE), 3),
-                                           per_frl = round(mean(d_frl, na.rm = TRUE), 3),
-                                           per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
-                                           per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
-                                           per_white = round(mean(d_race_white, na.rm = TRUE), 3),
-                                           per_black = round(mean(d_race_black, na.rm = TRUE), 3),
-                                           per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
-                                           per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
-                                           per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
-                                    by = c("flag_ohc")]
+  a_demo_compare <- demo_set[, list(n_obs = .N,
+                                     per_male = round(mean(d_male, na.rm = TRUE), 3),
+                                     per_elp = round(mean(d_elp, na.rm = TRUE), 3),
+                                     per_sped = round(mean(d_sped, na.rm = TRUE), 3),
+                                     per_frl = round(mean(d_frl, na.rm = TRUE), 3),
+                                     per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
+                                     per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
+                                     per_white = round(mean(d_race_white, na.rm = TRUE), 3),
+                                     per_black = round(mean(d_race_black, na.rm = TRUE), 3),
+                                     per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
+                                     per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
+                                     per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
+                              by = c("flag_ohc")]
   
   
   # calc overall demo, ohc status and frl 
-  a_demo_compare_frl <- child_demo_data[, list(n_obs = .N,
-                                               per_male = round(mean(d_male, na.rm = TRUE), 3),
-                                               per_elp = round(mean(d_elp, na.rm = TRUE), 3),
-                                               per_sped = round(mean(d_sped, na.rm = TRUE), 3),
-                                               per_frl = round(mean(d_frl, na.rm = TRUE), 3),
-                                               per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
-                                               per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
-                                               per_white = round(mean(d_race_white, na.rm = TRUE), 3),
-                                               per_black = round(mean(d_race_black, na.rm = TRUE), 3),
-                                               per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
-                                               per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
-                                               per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
-                                    by = c("flag_ohc", "compare_frl")]
+  a_demo_compare_frl <- demo_set[, list(n_obs = .N,
+                                         per_male = round(mean(d_male, na.rm = TRUE), 3),
+                                         per_elp = round(mean(d_elp, na.rm = TRUE), 3),
+                                         per_sped = round(mean(d_sped, na.rm = TRUE), 3),
+                                         per_frl = round(mean(d_frl, na.rm = TRUE), 3),
+                                         per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
+                                         per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
+                                         per_white = round(mean(d_race_white, na.rm = TRUE), 3),
+                                         per_black = round(mean(d_race_black, na.rm = TRUE), 3),
+                                         per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
+                                         per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
+                                         per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
+                              by = c("flag_ohc", "compare_frl")]
   
   # calc overall demo, hs subset, ohc status
-  a_demo_compare_hs <- child_demo_data_hs[, list(n_obs = .N,
-                                                 per_male = round(mean(d_male, na.rm = TRUE), 3),
-                                                 per_elp = round(mean(d_elp, na.rm = TRUE), 3),
-                                                 per_sped = round(mean(d_sped, na.rm = TRUE), 3),
-                                                 per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
-                                                 per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
-                                                 per_white = round(mean(d_race_white, na.rm = TRUE), 3),
-                                                 per_black = round(mean(d_race_black, na.rm = TRUE), 3),
-                                                 per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
-                                                 per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
-                                                 per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
-                                          by = c("flag_ohc")]
+  a_demo_compare_hs <- demo_set[flag_hs == 1, list(n_obs = .N,
+                                                   per_male = round(mean(d_male, na.rm = TRUE), 3),
+                                                   per_elp = round(mean(d_elp, na.rm = TRUE), 3),
+                                                   per_sped = round(mean(d_sped, na.rm = TRUE), 3),
+                                                   per_fpl = round(mean(d_fpl, na.rm = TRUE), 3),
+                                                   per_rpl = round(mean(d_rpl, na.rm = TRUE), 3),
+                                                   per_white = round(mean(d_race_white, na.rm = TRUE), 3),
+                                                   per_black = round(mean(d_race_black, na.rm = TRUE), 3),
+                                                   per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
+                                                   per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
+                                                   per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
+                                            by = c("flag_ohc")]
   
   # calc overall demo, hs subset, ohc status and frl
   a_demo_compare_hs_frl <- child_demo_data_hs[, list(n_obs = .N,
