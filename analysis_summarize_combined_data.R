@@ -1,8 +1,8 @@
 ######################################################################
 # notes:
-# - purpose:
-# - inputs:
-# - outputs:
+# - purpose: create summary tables of demographics and OHC characteristics
+# - inputs: formatted analysis set
+# - outputs: stacked tables summarizing data characteristics
 # - keywords: #brule
 # - general:
 ######################################################################
@@ -274,6 +274,52 @@
   # reorder vars
   ea_colorder(stacked_ohc_compare, c("set", "d_male", "d_race_white"))
 
+#########################################
+# summarize ohc flags overall and in hs #
+#########################################
+  
+  # count placement flags
+  a_plcmt_flags <- analysis_set[flag_ohc == 1, list(n_ohc_obs = .N,
+                                                    n_cur_plcmt = sum(flag_cur_plcmt == 1),
+                                                    n_prior_plcmt = sum(flag_prior_plcmt == 1))]
+  
+  # count placement flags
+  a_plcmt_flags_hs <- analysis_set_hs[flag_ohc == 1, list(n_ohc_obs = .N,
+                                                          n_cur_plcmt = sum(flag_cur_plcmt == 1),
+                                                          n_prior_plcmt = sum(flag_prior_plcmt == 1))]
+  
+  # count placement flags by acad yr
+  a_plcmt_flags_yr <- analysis_set_hs[flag_ohc == 1, list(n_ohc_obs = .N,
+                                                          n_cur_plcmt = sum(flag_cur_plcmt == 1),
+                                                          n_prior_plcmt = sum(flag_prior_plcmt == 1)),
+                                      by = acad_year]
+  
+  # count placement flags by region
+  a_plcmt_flags_reg <- analysis_set_hs[flag_ohc == 1, list(n_ohc_obs = .N,
+                                                           n_cur_plcmt = sum(flag_cur_plcmt == 1),
+                                                           n_prior_plcmt = sum(flag_prior_plcmt == 1)),
+                                       by = lf_region]
+  
+  # create pre placement var
+  a_plcmt_flags[, n_pre_plcmt := n_ohc_obs - (n_cur_plcmt + n_prior_plcmt)]
+  a_plcmt_flags_hs[, n_pre_plcmt := n_ohc_obs - (n_cur_plcmt + n_prior_plcmt)]
+  a_plcmt_flags_yr[, n_pre_plcmt := n_ohc_obs - (n_cur_plcmt + n_prior_plcmt)]
+  a_plcmt_flags_reg[, n_pre_plcmt := n_ohc_obs - (n_cur_plcmt + n_prior_plcmt)]
+
+  # add vars to stack
+  a_plcmt_flags[, set := "overall"]
+  a_plcmt_flags_hs[, set := "hs"]
+  a_plcmt_flags_yr[, set := "hs_year"]
+  a_plcmt_flags_reg[, set := "hs_region"]
+
+  # stack together
+  stacked_plcmt_flags <- rbind(a_plcmt_flags, a_plcmt_flags_hs, fill = TRUE)
+  stacked_plcmt_flags <- rbind(stacked_plcmt_flags, a_plcmt_flags_yr, fill = TRUE)
+  stacked_plcmt_flags <- rbind(stacked_plcmt_flags, a_plcmt_flags_reg, fill = TRUE)
+
+  # reorder vars
+  ea_colorder(stacked_plcmt_flags, c("set", "acad_year", "lf_region"))
+
 ########################################################
 # examine number of placements - by year, type, region #
 ########################################################
@@ -405,6 +451,7 @@
     ea_write(stacked_demo_compare, paste0(p_dir_out, "demo_compare_overall.csv"))
     ea_write(stacked_demo_compare_hs, paste0(p_dir_out, "demo_compare_hs.csv"))
     ea_write(stacked_ohc_compare, paste0(p_dir_out, "ohc_compare.csv"))
+    ea_write(stacked_plcmt_flags, paste0(p_dir_out, "num_plcmts_flags.csv"))
     ea_write(stacked_num_plcmts, paste0(p_dir_out, "num_plcmts_by_type.csv"))
     ea_write(stacked_plcmt_info, paste0(p_dir_out, "plcmt_compare.csv"))
 
