@@ -39,9 +39,6 @@
   # make copy of analysis set
   analysis_set <- copy(in_analysis_set)
   
-  # remove acad years not in analysis period (< 2008 and > 2012) #brule
-  analysis_set <- subset(analysis_set, acad_year %in% c("2008", "2009", "2010", "2011", "2012"))
-  
   # sort by child id, placements, demographics, and academic year
   setorder(analysis_set, lf_child_id, -flag_cur_plcmt, d_male, acad_year, na.last = TRUE)
   

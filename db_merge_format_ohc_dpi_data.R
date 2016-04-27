@@ -197,6 +197,7 @@
   
   # create flag if prior placement
   stacked_data[, flag_prior_plcmt := ifelse(is.na(n_plcmt_acad) & first_pstart_date < ymd(paste0((as.numeric(acad_year) - 1), "-06-01")), 1, 0)]
+  stacked_data[flag_ohc == 0, flag_prior_plcmt := 0]
 
   # create frl / non-frl flags for comparison groups
   stacked_data[, flag_compare_frl := ifelse(flag_ohc == 0 & d_frl == 1, 1, 0)]
@@ -296,12 +297,18 @@
   # save output from dummy function
   analysis_set <- out_dummy$out_data_dummy
 
-##########
-# export #
-##########
+#####################
+# format and export #
+#####################
   
   # copy analysis set to export
   out_analysis_set <- copy(analysis_set)
+  
+  # remove acad years not in analysis period (< 2008 and > 2012) #brule
+  out_analysis_set <- subset(out_analysis_set, acad_year %in% c("2008", "2009", "2010", "2011", "2012"))
+  
+  # remove unneeded acad year dummies
+  out_analysis_set[, c("d_acad_year_2006", "d_acad_year_2007", "d_acad_year_2013", "d_acad_year_2014") := NULL]
   
   # reorder vars
   ea_colorder(out_analysis_set, c("lf_child_id", "lds_student_key", "child_id", "acad_year", "flag_ohc", "flag_cur_plcmt", "flag_prior_plcmt", 
