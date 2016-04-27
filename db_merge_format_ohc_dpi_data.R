@@ -17,6 +17,7 @@
   
   # load packages
   library(lubridate)
+  library(foreign)
   library(data.table)
   library(eaanalysis)
 
@@ -318,8 +319,9 @@
   # export
   if (p_opt_exp == 1) { 
     
-    save(out_analysis_set, file = "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata")
-    ea_write(out_analysis_set, "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.csv")
+    # save(out_analysis_set, file = "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata")
+    write.dta(out_analysis_set, "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.dta")
+    # ea_write(out_analysis_set, "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.csv")
     
     ea_write(ohc_ids_merge, "X:/LFS-Education Outcomes/qc/ohc_merged_ids.csv")
     ea_write(a_merge_stats, "X:/LFS-Education Outcomes/qc/ohc_merged_rates.csv")
