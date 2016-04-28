@@ -1,8 +1,8 @@
 ######################################################################
 # notes:
-# - purpose: format and structure dpi data, merge with school covariates
-# - inputs: raw dpi data set, school covariate set, file with wkce avgs (to standardize scores)
-# - outputs: analysis set (with necessary vars) and set with all vars
+# - purpose: format and structure DPI data, merge with school covariates
+# - inputs: raw DPI data set, school covariate set, file with wkce avgs (to standardize scores)
+# - outputs: analysis set (with vars of interest - student characteristics, ed outcomes, school variates) and set with all vars
 # - keywords: #brule
 # - general:
 ######################################################################
@@ -86,8 +86,8 @@
   format_stacked_dpi[d_race_missing == 1, c("d_race_white", "d_race_missing", "d_race_indian", "d_race_black", "d_race_hispanic", 
                                             "d_race_asian") := NA]
 
-  # create flag if hs student #brule
-  format_stacked_dpi[, flag_hs := ifelse(grade_level_cd %in% c("08", "09", "10", "11", "12"), 1, 0)]
+  # create flag if analysis grade #brule
+  format_stacked_dpi[, flag_analysis_grd := ifelse(grade_level_cd %in% c("07", "08", "09", "10", "11", "12"), 1, 0)]
   
 ###############################################
 # subset to one row per student per acad year #
@@ -195,11 +195,14 @@
 # format and export #
 #####################
   
+  # create lf school id var (combined district and school ids) #brule
+  full_dpi_set[, lf_sch_id := paste0("lf_", dist_acctbl_code_cd, "_", sch_acctbl_code_cd)]
+
   # subset to analysis vars
-  out_stacked_dpi <- subset(full_dpi_set, select = c(lds_student_key, child_id, d_male, d_female, d_elp, d_sped, d_frl, d_fpl, d_rpl, d_race_white,
-                                                     d_race_black, d_race_hispanic, d_race_asian, d_race_indian, d_race_missing, acad_year, 
-                                                     dist_acctbl_code_cd, sch_acctbl_code_cd, sch_county_name, age_in_years_cd, grade_level_cd, 
-                                                     flag_hs, att_rate_wi, days_removed_os, incidents_os, test_date, zscore_math_kce, perf_level_math,
+  out_stacked_dpi <- subset(full_dpi_set, select = c(lds_student_key, child_id, acad_year, lf_sch_id, sch_county_name, age_in_years_cd, 
+                                                     grade_level_cd, flag_analysis_grd, d_male, d_female, d_elp, d_sped, d_frl, d_fpl, d_rpl, 
+                                                     d_race_white, d_race_black, d_race_hispanic, d_race_asian, d_race_indian, d_race_missing, 
+                                                     att_rate_wi, days_removed_os, incidents_os, test_date, zscore_math_kce, perf_level_math, 
                                                      zscore_rdg_kce, perf_level_rdg, sch_pupil_count, sch_fte1000, sch_frl_scaled, sch_sped_scaled,
                                                      sch_elp_scaled, sch_non_white_scaled, sch_removal_scaled, sch_mean_math_z_score, 
                                                      sch_mean_rdg_z_score))
