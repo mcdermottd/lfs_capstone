@@ -70,9 +70,9 @@
   setnames(format_ohc_set, "child_id", "lf_child_id")
   format_ohc_set[, lf_child_id := paste0("dcf_", lf_child_id)]
 
-#######################################
-# merge ids and determine merge rates #
-#######################################
+#########################
+# merge dpi and ohc ids #
+#########################
   
   # subset dpi data to merge id and remove duplicates
   dpi_data_ids <- subset(format_dpi_set, select = c(lf_child_id, lds_student_key, child_id))
@@ -100,6 +100,16 @@
   combined_ids[, flag_no_dpi := ifelse(ea_scan(lf_child_id, 1, "_") == "dcf" & flag_merge == 0 & flag_ohc == 1, 1, 0)]
   combined_ids[, flag_no_ohc := ifelse(ea_scan(lf_child_id, 1, "_") == "dcf" & flag_ohc == 0, 1, 0)]
 
+  # subset out unmerged ohc ids #brule
+  merged_ids <- subset(combined_ids, flag_no_ohc != 1 & flag_no_dpi != 1)
+  
+  # remove unneeded merge flags
+  merged_ids[, c("flag_dpi", "flag_merge", "flag_no_dpi", "flag_no_ohc") := NULL]
+  
+###########################
+# investigate merge rates #
+###########################
+  
   # subset to unduplicated ohc ids
   ohc_ids_merge <- subset(combined_ids, ea_scan(lf_child_id, 1, "_") == "dcf", select = c(lf_child_id, lds_student_key, child_id, flag_merge, 
                                                                                           flag_no_dpi, flag_no_ohc))
@@ -107,12 +117,30 @@
   # create frequency table of merge types
   a_merge_stats <- ea_table(ohc_ids_merge, c("flag_merge", "flag_no_dpi", "flag_no_ohc"), opt_percent = 1)
   
-  # subset out unmerged ohc ids #brule
-  merged_ids <- subset(combined_ids, flag_no_ohc != 1 & flag_no_dpi != 1)
-  
-  # remove unneeded merge flags
-  merged_ids[, c("flag_dpi", "flag_merge", "flag_no_dpi", "flag_no_ohc") := NULL]
+  # create dpi and ohc sets to compare years and grades
+  ohc_compare <- subset(format_ohc_set, select = c(lf_child_id, acad_year, child_age))
+  dpi_compare <- subset(format_dpi_set, ea_scan(lf_child_id, 1, "_") == "dcf", select = c(lf_child_id, acad_year, grade_level_cd))
 
+  # combine with merged ids
+  ohc_compare <- ea_merge(ohc_compare, merged_ids, "lf_child_id", "x")
+  dpi_compare <- ea_merge(dpi_compare, merged_ids, "lf_child_id", "x")
+
+  # rename flag_ohf
+  setnames(ohc_compare, "flag_ohc", "id_merge")
+  setnames(dpi_compare, "flag_ohc", "id_merge")
+
+  # set missings to 0
+  ohc_compare[is.na(id_merge), id_merge := 0]
+  dpi_compare[is.na(id_merge), id_merge := 0]
+
+  # create frequency table of OHC merge rates
+  a_merge_stats_ohc_yr <- ea_table(ohc_compare, c("acad_year", "id_merge"), opt_percent = 1)
+  a_merge_stats_ohc_age <- ea_table(ohc_compare, c("child_age", "id_merge"), opt_percent = 1)
+
+  # create frequency table of DPI merge rates
+  a_merge_stats_dpi_yr <- ea_table(dpi_compare, c("acad_year", "id_merge"), opt_percent = 1)
+  a_merge_stats_dpi_grd <- ea_table(dpi_compare, c("grade_level_cd", "id_merge"), opt_percent = 1)
+  
 ##############################################
 # merge on dpi academic year info and format #
 ##############################################
@@ -180,7 +208,7 @@
   # remove unneeded ohc flag
   ohc_no_dpi_yr[, flag_ohc := NULL]
   
-  # merge with ohc data with no matching dpi year #brule
+  # merge with ohc data with no matching dpi year (to use dpi demographics) #brule
   ohc_dpi_unmatched <- ea_merge(dpi_child_info, ohc_no_dpi_yr, "lf_child_id", "y", opt_print = 0)
   
   # stack merged ohc sets
@@ -313,18 +341,25 @@
   
   # reorder vars
   ea_colorder(out_analysis_set, c("lf_child_id", "lds_student_key", "child_id", "acad_year", "flag_ohc", "flag_cur_plcmt", "flag_prior_plcmt", 
-                                  "flag_compare_frl", "flag_hs", "grade", "age_in_years_cd", "dist_acctbl_code_cd", "sch_acctbl_code_cd",
-                                  "lf_region", "lf_county"))
+                                  "flag_compare_frl", "flag_analysis_grd", "grade", "age_in_years_cd", "lf_sch_id", "lf_region", "lf_county"))
 
   # export
   if (p_opt_exp == 1) { 
     
-    # save(out_analysis_set, file = "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata")
+    # save analysis set (multiple formats)
+    save(out_analysis_set, file = "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata")
     write.dta(out_analysis_set, "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.dta")
     # ea_write(out_analysis_set, "X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.csv")
     
+    # save qc tables of merge rates
     ea_write(ohc_ids_merge, "X:/LFS-Education Outcomes/qc/ohc_merged_ids.csv")
-    ea_write(a_merge_stats, "X:/LFS-Education Outcomes/qc/ohc_merged_rates.csv")
+    ea_write(a_merge_stats, "X:/LFS-Education Outcomes/qc/overall_id_merge_rates.csv")
+    ea_write(a_merge_stats_ohc_yr, "X:/LFS-Education Outcomes/qc/ohc_merge_rates_yr.csv")
+    ea_write(a_merge_stats_ohc_age, "X:/LFS-Education Outcomes/qc/ohc_merge_rates_age.csv")
+    ea_write(a_merge_stats_dpi_yr, "X:/LFS-Education Outcomes/qc/dpi_merge_rates_yr.csv")
+    ea_write(a_merge_stats_dpi_grd, "X:/LFS-Education Outcomes/qc/dpi_merge_rates_grade.csv")
+    
+    # save frequency table from dummy function
     ea_write(out_dummy$out_dummy_freqs, "X:/LFS-Education Outcomes/qc/dummy_freqs.csv")
 
   }
