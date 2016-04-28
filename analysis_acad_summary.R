@@ -67,7 +67,7 @@
                                 by = c("flag_cur_plcmt", "flag_prior_plcmt", "grade")]
   
   # calc HS acad outcomes, by ohc status
-  a_acad <- analysis_set[, list(n_obs = .N,
+  a_acad <- analysis_sample[, list(n_obs = .N,
                                    avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
                                    sd_atten = round(sd(att_rate_wi, na.rm = TRUE), 3),
                                    avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
@@ -81,7 +81,7 @@
                             by = c("flag_cur_plcmt", "flag_prior_plcmt")]
 
   # calc HS acad outcomes, by ohc status, gender
-  a_acad_by_gender <- analysis_set[, list(n_obs = .N,
+  a_acad_by_gender <- analysis_sample[, list(n_obs = .N,
                                              avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
                                              sd_atten = round(sd(att_rate_wi, na.rm = TRUE), 3),
                                              avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
@@ -95,7 +95,7 @@
                                       by = c("flag_cur_plcmt", "flag_prior_plcmt", "d_male")]
   
   # calc HS acad outcomes, by ohc status, region
-  a_acad_by_region <- analysis_set[, list(n_obs = .N,
+  a_acad_by_region <- analysis_sample[, list(n_obs = .N,
                                              avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
                                              sd_atten = round(sd(att_rate_wi, na.rm = TRUE), 3),
                                              avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
@@ -113,7 +113,7 @@
 ###################################################
   
   # calc HS acad outcomes, by ohc status, placement type
-  a_acad_by_type <- analysis_set[, list(n_obs = .N,
+  a_acad_by_type <- analysis_sample[, list(n_obs = .N,
                                            avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
                                            sd_atten = round(sd(att_rate_wi, na.rm = TRUE), 3),
                                            avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
@@ -129,7 +129,7 @@
 
   
   # calc HS acad outcomes, by ohc status, gender and placement type
-  a_acad_by_gender_type <- analysis_set[, list(n_obs = .N,
+  a_acad_by_gender_type <- analysis_sample[, list(n_obs = .N,
                                                    avg_atten = round(mean(att_rate_wi, na.rm = TRUE), 3),
                                                    sd_atten = round(sd(att_rate_wi, na.rm = TRUE), 3),
                                                    avg_days_remove = round(mean(days_removed_os, na.rm = TRUE), 3),
@@ -143,7 +143,7 @@
                                            by = c("flag_cur_plcmt", "flag_prior_plcmt", "d_male", "p_type")]
   
   # calc wkce scores by grade (8 and 10), gender, and placement type
-  a_wkce_grade_gender_type <- analysis_set[grade == "08" | grade == "10" , list(n_obs = .N,
+  a_wkce_grade_gender_type <- analysis_sample[grade == "08" | grade == "10" , list(n_obs = .N,
                                                                                    avg_math_kce = round(mean(zscore_math_kce, na.rm = TRUE), 3),
                                                                                    avg_rdg_kce = round(mean(zscore_rdg_kce, na.rm = TRUE), 3)),
                                               by = c("flag_cur_plcmt", "flag_prior_plcmt", "grade", "d_male", "p_type")]
