@@ -92,4 +92,29 @@
                                               title = "Average Days Per Out of Home Care Placement Per Year \n - by Academic Year") + 
                                          plot_attributes +
                                          facet_wrap(~acad_year, ncol = 2)
+  
+#########################
+# plot ohc info overall #
+#########################
+  
+  # histogram - total ohc days (30 day bins, <= 1825 days)
+  plot_hist_ohc_days_hs <- ggplot(data = plcmt_data_hs, aes(x = tot_ohc_days)) + 
+                                   geom_histogram(binwidth = 30, colour = "black", fill = "dodgerblue4") +
+                                   labs(x = "Days in OHC", y = "Number of Children", 
+                                        title = "Total Days in Out-of-Home Care") + 
+                                   plot_attributes
+  
+  # histogram - total ohc placements (1 day bins, <= 20 placements)
+  plot_hist_ohc_plcmts_hs <- ggplot(data = subset(plcmt_data_hs, n_plcmt_tot <= 20), aes(x = n_plcmt_tot)) + 
+                                     geom_histogram(binwidth = 1, colour = "black", fill = "dodgerblue4") +
+                                     labs(x = "Number of Placements", y = "Number of Children", 
+                                          title = "Total Placements in Out-of-Home Care") + 
+                                     plot_attributes
+  
+  # histogram - avg plcmt length (15 day bins, <= 750 days)
+  plot_hist_avg_days_plcmt_hs <- ggplot(data = subset(plcmt_data_hs, avg_days_plcmt <= 750), aes(x = avg_days_plcmt)) + 
+                                         geom_histogram(binwidth = 15, colour = "black", fill = "dodgerblue4") +
+                                         labs(x = "Days Per Placement", y = "Number of Children", 
+                                              title = "Average Length of Out-of-Home Care Placement - Overall") + 
+                                         plot_attributes
 
