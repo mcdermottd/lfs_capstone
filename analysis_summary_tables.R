@@ -67,7 +67,7 @@
     sch_count_reg <- full_outcomes_set[, list(n_schools = uniqueN(lf_sch_id)), by = lf_region]
     sch_count_reg_sub <- analysis_sample[, list(n_schools = uniqueN(lf_sch_id)), by = lf_region]
 
-    # add vars to stack
+    # add vars for stacking
     sch_count[, ":="(sch_type = "all", lf_region = "all")]
     sch_count_sub[, ":="(sch_type = "analysis_sample", lf_region = "all")]
     sch_count_reg[, sch_type := "all"]
@@ -109,7 +109,7 @@
                                              per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
                                              per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
                                              per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
-                                     by = c("flag_ohc")]
+                                     by = flag_ohc]
   
   
   # table - overall demographics by ohc and frl statuses 
@@ -124,7 +124,7 @@
                                          per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
                                          per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
                                          per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
-                                  by = c("flag_ohc", "flag_compare_frl")]
+                                  by = list(flag_ohc, flag_compare_frl)]
 
   # add vars for stacking
   a_demo_overall[, ":="(set = "full", type = "overall")]
@@ -166,7 +166,7 @@
                                              per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
                                              per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
                                              per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
-                                      by = c("flag_ohc")]
+                                      by = flag_ohc]
   
   # table - demographics of analysis sample by ohc and frl statuses
   a_demo_sub_ohc_frl <- analysis_demo_set[, list(n_obs = .N,
@@ -180,7 +180,7 @@
                                                  per_hispanic = round(mean(d_race_hispanic, na.rm = TRUE), 3),
                                                  per_asian = round(mean(d_race_asian, na.rm = TRUE), 3),
                                                  per_indian = round(mean(d_race_indian, na.rm = TRUE), 3)),
-                                          by = c("flag_ohc", "flag_compare_frl")]
+                                          by = list(flag_ohc, flag_compare_frl)]
 
   
   # add vars for stacking
@@ -192,7 +192,6 @@
   stacked_demo_analysis <- rbind(a_demo_sub, a_demo_sub_ohc, fill = TRUE)
   stacked_demo_analysis <- rbind(stacked_demo_analysis, a_demo_sub_ohc_frl, fill = TRUE)
 
-  
   # stack with overall demographics
   stacked_full_demo <- rbind(stacked_demo_overall, stacked_demo_analysis)
   
@@ -237,7 +236,7 @@
                                            mean = round(mean(value), 3),
                                            var = round(var(value), 3),
                                            sd = round(sd(value), 3)), 
-                                    by = c("variable")]
+                                    by = variable]
   
   # table - ohc placement stats for analysis sample
   a_ohc_sub <- analysis_demo_ohc_long[, list(n_obs = length(value),
@@ -249,7 +248,7 @@
                                                    mean = round(mean(value), 3),
                                                    var = round(var(value), 3),
                                                    sd = round(sd(value), 3)), 
-                                            by = c("variable")]
+                                            by = variable]
   
   # table - ohc placement stats for analysis sample by gender
   a_ohc_sub_gender <- analysis_demo_ohc_long[, list(n_obs = length(value),
@@ -261,7 +260,7 @@
                                                 mean = round(mean(value), 2),
                                                 var = round(var(value), 2),
                                                 sd = round(sd(value), 2)),
-                                         by = c("variable", "d_male")]
+                                         by = list(variable, d_male)]
 
   # table - ohc placement stats for analysis sample by gender by race
   a_ohc_sub_race <- analysis_demo_ohc_long[, list(n_obs = length(value),
@@ -273,7 +272,7 @@
                                               mean = round(mean(value), 2),
                                               var = round(var(value), 2),
                                               sd = round(sd(value), 2)),
-                                       by = c("variable", "d_race_white")]
+                                       by = list(variable, d_race_white)]
 
   # add vars for stacking
   a_ohc_stats[, type := "overall"]
@@ -375,7 +374,7 @@
                                            n_group_home = sum(p_type == "group_home"),
                                            n_rcc = sum(p_type == "rcc"),
                                            n_other = sum(p_type == "other")),
-                                    by = c("acad_year", "lf_region")]
+                                    by = list(acad_year, lf_region)]
       
   # add vars for stacking
   a_num_plcmts[, type := "overall"]
