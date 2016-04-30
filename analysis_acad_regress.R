@@ -17,6 +17,7 @@
 
   # load packages
   library(stargazer)
+  library(apsrtable)
   library(sandwich)
   library(lmtest)
   library(data.table)
@@ -33,66 +34,60 @@
 #############
 
   # load analysis set
-  in_analysis_set <- ea_load("X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata")
+  in_outcomes_set <- ea_load("X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata")
 
 ########################
 # format analysis data #
 ########################
 
   # copy input sets
-  analysis_set <- copy(in_analysis_set)
+  full_outcomes_set <- copy(in_outcomes_set)
 
   # sort by academic year
-  setorder(analysis_set, acad_year)
-  
-  # create combined school id var
-  analysis_set[, lf_sch_id := paste0(dist_acctbl_code_cd, "_", sch_acctbl_code_cd)]
+  setorder(full_outcomes_set, acad_year)
   
   # transform number of placement var
-  analysis_set[, n_plcmt_sq := lf_n_plcmt_acad * lf_n_plcmt_acad]
-  analysis_set[, n_plcmt_sqrt := sqrt(lf_n_plcmt_acad)]
-  analysis_set[, n_plcmt_log := log(lf_n_plcmt_acad)]
+  full_outcomes_set[, n_plcmt_sq := lf_n_plcmt_acad * lf_n_plcmt_acad]
+  full_outcomes_set[, n_plcmt_sqrt := sqrt(lf_n_plcmt_acad)]
+  full_outcomes_set[, n_plcmt_log := log(lf_n_plcmt_acad)]
 
   # transform placement days var
-  analysis_set[, plcmt_days_sq := tot_plcmt_days_acad * tot_plcmt_days_acad]
-  analysis_set[, plcmt_days_sqrt := sqrt(tot_plcmt_days_acad)]
-  analysis_set[, plcmt_days_log := log(tot_plcmt_days_acad)]
+  full_outcomes_set[, plcmt_days_sq := tot_plcmt_days_acad * tot_plcmt_days_acad]
+  full_outcomes_set[, plcmt_days_sqrt := sqrt(tot_plcmt_days_acad)]
+  full_outcomes_set[, plcmt_days_log := log(tot_plcmt_days_acad)]
   
   # transform school enrollment var
-  analysis_set[, sch_pup_ct_log := log(sch_pupil_count)]
+  full_outcomes_set[, sch_pup_ct_log := log(sch_pupil_count)]
 
-  # create hs subset
-  analysis_set_hs <- subset(analysis_set, flag_hs == 1)
+  # create set with only analysis grades (7 - 12) #brule
+  analysis_sample <- subset(full_outcomes_set, flag_analysis_grd == 1)
   
-  # create set with only 7th and 9th graders with next year test score for wkce analysis
-  analysis_set_wkce <- subset(analysis_set, (grade %in% c("07", "09") & !is.na(nxt_zscore_math_kce)))
-
+  # create set with only 7th and 9th graders with next year test score for wkce analysis #brule
+  analysis_wkce <- subset(analysis_sample, (grade %in% c("07", "09") & !is.na(nxt_zscore_math_kce)))
+  
 #################################
 # define SE clustering function #
 #################################
   
-  get_CL_vcov <- function(model, cluster){
+  func_cl_vcov <- function(model, cluster){
     # cluster is an actual vector of clusters from data passed to model
     # from: http://rforpublichealth.blogspot.com/2014/10/easy-clustered-standard-errors-in-r.html
     
-    require(sandwich, quietly = TRUE)
-    require(lmtest, quietly = TRUE)
-   
     # NA
     cluster <- as.character(cluster)
    
-    #calculate degree of freedom adjustment
+    # calculate degree of freedom adjustment
     M <- length(unique(cluster))
     N <- length(cluster)
     K <- model$rank
-    dfc <- (M/(M-1))*((N-1)/(N-K))
+    dfc <- (M / (M - 1)) * ((N - 1) / (N - K))
    
-    #calculate the uj's
+    # calculate the uj's
     uj  <- apply(estfun(model), 2, function(x) tapply(x, cluster, sum))
    
-    #use sandwich to get the var-covar matrix
-    vcovCL <- dfc*sandwich(model, meat=crossprod(uj)/N)
-    return(vcovCL)
+    # use sandwich to get the var-covar matrix
+    vcov_cl <- dfc * sandwich(model, meat = crossprod(uj) / N)
+    return(vcov_cl)
   }
   
 #############################
@@ -117,38 +112,40 @@
   lm_controls_full <- paste(c(lm_student_controls, lm_sch_controls, lm_dummies_yr, lm_dummies_grade), collapse = " + ")
   lm_controls_wkce <- paste(c(lm_student_controls, lm_sch_controls, lm_dummies_yr, "d_grade_09"), collapse = " + ")
 
-#############################
-# set regression parameters #
-#############################
-  
-  # create dataset with no missings on 
-  
-  
 ############################
 # regressions - attendence #
 ############################
 
-  attend_set <- subset(analysis_set_hs, select = c("lf_sch_id", "att_rate_wi", "flag_cur_plcmt", "flag_prior_plcmt", lm_student_controls, 
-                                                   lm_sch_controls, lm_dummies_yr, lm_dummies_grade))
+  # create dataset with no missings
+  attend_set <- subset(analysis_sample, select = c("lf_sch_id", "att_rate_wi", "flag_cur_plcmt", "flag_prior_plcmt", "lf_n_plcmt_acad", 
+                                                   "tot_plcmt_days_acad", "d_p_type_fhome_rel", "d_p_type_fhome_nonrel", "d_p_type_group_home",
+                                                   "d_p_type_rcc", "d_p_type_other", lm_student_controls, lm_sch_controls, lm_dummies_yr, 
+                                                   lm_dummies_grade))
   
-  ztest <- na.omit(attend_set)
+  # remove all missings to run clustering function #brule
+  attend_set <- na.omit(attend_set)
   
   # reg: attendance on OHC flags and controls
   lm_formula <- paste("att_rate_wi ~ flag_cur_plcmt + flag_prior_plcmt + ", lm_controls_full)
-  lm_attend_ohc <- lm(lm_formula, data = ztest)
-
+  m1a_attend_ohc <- lm(lm_formula, data = attend_set)
+  
   # reg: attendance on number of placements
   lm_formula <- paste("att_rate_wi ~ lf_n_plcmt_acad + flag_prior_plcmt + ", lm_controls_full)
-  lm_attend_n_plcmt <- lm(lm_formula, data = analysis_set_hs)
+  m1b_attend_n_plcmt <- lm(lm_formula, data = attend_set)
 
   # reg: attendance on total placement days
   lm_formula <- paste("att_rate_wi ~ tot_plcmt_days_acad + flag_prior_plcmt + ", lm_controls_full)
-  lm_attend_plcmt_days <- lm(lm_formula, data = analysis_set_hs)
+  m1c_attend_plcmt_days <- lm(lm_formula, data = attend_set)
 
   # reg: attendance on type of OHC and controls
   lm_formula <- paste("att_rate_wi ~ d_p_type_fhome_rel + d_p_type_fhome_nonrel + d_p_type_group_home + d_p_type_rcc + d_p_type_other + 
                       flag_prior_plcmt + ", lm_controls_full)
-  lm_attend_ptype <- lm(lm_formula, data = analysis_set_hs)
+  m1d_attend_ptype <- lm(lm_formula, data = attend_set)
+  
+  # create var-cov matrix with clustered standard errors
+  m1a_vcov_cl <- func_cl_vcov(m1a_attend_ohc, attend_set$lf_sch_id)
+  m1b_vcov_cl <- func_cl_vcov(m1b_attend_n_plcmt, attend_set$lf_sch_id)
+  m1c_vcov_cl <- func_cl_vcov(m1c_attend_plcmt_days, attend_set$lf_sch_id)
 
 ##########################
 # regressions - removals #
