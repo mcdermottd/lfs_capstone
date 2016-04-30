@@ -214,23 +214,23 @@
   wkce_math_set <- na.omit(wkce_math_set)
   
   # reg: removals on OHC flags
-  lm_formula <- paste("nxt_zscore_math_kce ~ flag_cur_plcmt + flag_prior_plcmt + ", lm_controls_full)
+  lm_formula <- paste("nxt_zscore_math_kce ~ flag_cur_plcmt + flag_prior_plcmt + ", lm_controls_wkce)
   m3a_wkce_math_ohc <- lm(lm_formula, data = wkce_math_set)
   
   # reg: removals on number of placements, with squared term
-  lm_formula <- paste("nxt_zscore_math_kce ~ lf_n_plcmt_acad + n_plcmt_sq + flag_prior_plcmt + ", lm_controls_full)
+  lm_formula <- paste("nxt_zscore_math_kce ~ lf_n_plcmt_acad + n_plcmt_sq + flag_prior_plcmt + ", lm_controls_wkce)
   m3b_wkce_math_plcmts_sq <- lm(lm_formula, data = wkce_math_set)
 
   # reg: removals on log number of placements
-  lm_formula <- paste("nxt_zscore_math_kce ~ n_plcmt_log + flag_prior_plcmt + ", lm_controls_full)
+  lm_formula <- paste("nxt_zscore_math_kce ~ n_plcmt_log + flag_prior_plcmt + ", lm_controls_wkce)
   m3c_wkce_math_plcmts_log <- lm(lm_formula, data = wkce_math_set)
   
   # reg: removals on total placement days, with squared term
-  lm_formula <- paste("nxt_zscore_math_kce ~ tot_plcmt_days_acad + plcmt_days_sq + flag_prior_plcmt + ", lm_controls_full)
+  lm_formula <- paste("nxt_zscore_math_kce ~ tot_plcmt_days_acad + plcmt_days_sq + flag_prior_plcmt + ", lm_controls_wkce)
   m3d_wkce_math_plcmt_days_sq <- lm(lm_formula, data = wkce_math_set)
 
   # reg: removals on log total placement days
-  lm_formula <- paste("nxt_zscore_math_kce ~ plcmt_days_log + flag_prior_plcmt + ", lm_controls_full)
+  lm_formula <- paste("nxt_zscore_math_kce ~ plcmt_days_log + flag_prior_plcmt + ", lm_controls_wkce)
   m3e_wkce_math_plcmt_days_log <- lm(lm_formula, data = wkce_math_set)
 
   # reg: removals on type of OHC
@@ -257,23 +257,23 @@
   wkce_rdg_set <- na.omit(wkce_rdg_set)
   
   # reg: removals on OHC flags
-  lm_formula <- paste("nxt_zscore_rdg_kce ~ flag_cur_plcmt + flag_prior_plcmt + ", lm_controls_full)
+  lm_formula <- paste("nxt_zscore_rdg_kce ~ flag_cur_plcmt + flag_prior_plcmt + ", lm_controls_wkce)
   m4a_wkce_rdg_ohc <- lm(lm_formula, data = wkce_rdg_set)
   
   # reg: removals on number of placements, with squared term
-  lm_formula <- paste("nxt_zscore_rdg_kce ~ lf_n_plcmt_acad + n_plcmt_sq + flag_prior_plcmt + ", lm_controls_full)
+  lm_formula <- paste("nxt_zscore_rdg_kce ~ lf_n_plcmt_acad + n_plcmt_sq + flag_prior_plcmt + ", lm_controls_wkce)
   m4b_wkce_rdg_plcmts_sq <- lm(lm_formula, data = wkce_rdg_set)
 
   # reg: removals on log number of placements
-  lm_formula <- paste("nxt_zscore_rdg_kce ~ n_plcmt_log + flag_prior_plcmt + ", lm_controls_full)
+  lm_formula <- paste("nxt_zscore_rdg_kce ~ n_plcmt_log + flag_prior_plcmt + ", lm_controls_wkce)
   m4c_wkce_rdg_plcmts_log <- lm(lm_formula, data = wkce_rdg_set)
   
   # reg: removals on total placement days, with squared term
-  lm_formula <- paste("nxt_zscore_rdg_kce ~ tot_plcmt_days_acad + plcmt_days_sq + flag_prior_plcmt + ", lm_controls_full)
+  lm_formula <- paste("nxt_zscore_rdg_kce ~ tot_plcmt_days_acad + plcmt_days_sq + flag_prior_plcmt + ", lm_controls_wkce)
   m4d_wkce_rdg_plcmt_days_sq <- lm(lm_formula, data = wkce_rdg_set)
 
   # reg: removals on log total placement days
-  lm_formula <- paste("nxt_zscore_rdg_kce ~ plcmt_days_log + flag_prior_plcmt + ", lm_controls_full)
+  lm_formula <- paste("nxt_zscore_rdg_kce ~ plcmt_days_log + flag_prior_plcmt + ", lm_controls_wkce)
   m4e_wkce_rdg_plcmt_days_log <- lm(lm_formula, data = wkce_rdg_set)
 
   # reg: removals on type of OHC
@@ -332,17 +332,23 @@
         file = paste0(p_dir_out, "models_attendance.tex"))
     
     # output wkce math models, full
-    cat(apsrtable(m3a_wkce_math_ohc, m3b_wkce_math_plcmts_sq, m3c_wkce_math_plcmts_log, m3d_wkce_math_plcmt_days_sq, m3e_wkce_math_plcmt_days_log,
+    cat(apsrtable(m3b_wkce_math_plcmts_sq, m3c_wkce_math_plcmts_log, m3d_wkce_math_plcmt_days_sq, m3e_wkce_math_plcmt_days_log,
                   m3f_wkce_math_ptype,
                   se = "robust",
                   order = "rl",
                   Sweave = FALSE,
                   float = "longtable"),
-                  # coef.names = c(ohc_var_lables, control_var_labels, grade_dummy_labels)),
         file = paste0(p_dir_out, "models_wkce_math.tex"))
     
     
-    
+        # output wkce math models, full
+    cat(apsrtable(m4a_wkce_rdg_ohc, m4b_wkce_rdg_plcmts_sq, m4c_wkce_rdg_plcmts_log, m4d_wkce_rdg_plcmt_days_sq, m4e_wkce_rdg_plcmt_days_log,
+                  m4f_wkce_rdg_ptype,
+                  se = "robust",
+                  order = "rl",
+                  Sweave = FALSE,
+                  float = "longtable"),
+        file = paste0(p_dir_out, "models_wkce_math.tex"))
     
     stargazer(lm_attend_ohc, lm_attend_n_plcmt, lm_attend_plcmt_days, lm_attend_ptype, 
               type = "html",
