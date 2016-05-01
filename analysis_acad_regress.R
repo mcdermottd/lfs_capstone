@@ -111,8 +111,11 @@
 #############################
   
   # create list of student control vars
-  lm_student_controls <- c("age_in_years_cd", "d_male", "d_elp", "d_sped", "d_frl", "d_race_black", "d_race_hispanic", "d_race_asian", 
+  lm_student_controls <- c("age_in_years_cd", "d_male", "d_frl", "d_sped", "d_elp", "d_race_black", "d_race_hispanic", "d_race_asian", 
                             "d_race_indian")
+  
+  # create list of grade dummies
+  lm_dummies_grade <- c("d_grade_08", "d_grade_09", "d_grade_10", "d_grade_11", "d_grade_12")
   
   # create list of school covariates
   lm_sch_controls <- c("sch_pup_ct_log", "sch_frl_scaled", "sch_sped_scaled", "sch_elp_scaled", "sch_non_white_scaled", "sch_removal_scaled",
@@ -121,9 +124,6 @@
   # create list of year dummies
   lm_dummies_yr <- c("d_acad_year_2009", "d_acad_year_2010", "d_acad_year_2011", "d_acad_year_2012")
   
-  # create list of grade dummies
-  lm_dummies_grade <- c("d_grade_09", "d_grade_10", "d_grade_11", "d_grade_12")
-
   # create list of region interaction dummies
   lm_region_interactions <- c("int_reg_mke_ohc", "int_reg_se_ohc", "int_reg_s_ohc", "int_reg_w_ohc", "int_reg_nw_ohc", "int_reg_nc_ohc", 
                               "int_reg_ne_ohc")
@@ -134,8 +134,8 @@
                    "d_p_type_other", lm_student_controls, lm_sch_controls, lm_dummies_yr, lm_dummies_grade, lm_region_interactions)
   
   # combine for full set of controls
-  lm_controls_full <- paste(c(lm_student_controls, lm_sch_controls, lm_dummies_yr, lm_dummies_grade), collapse = " + ")
-  lm_controls_wkce <- paste(c(lm_student_controls, lm_sch_controls, lm_dummies_yr, "d_grade_09"), collapse = " + ")
+  lm_controls_full <- paste(c(lm_student_controls, lm_dummies_grade, lm_sch_controls, lm_dummies_yr), collapse = " + ")
+  lm_controls_wkce <- paste(c(lm_student_controls, "d_grade_09", lm_sch_controls, lm_dummies_yr), collapse = " + ")
 
 ############################
 # regressions - attendence #
@@ -300,23 +300,25 @@
   # set output director
   p_dir_out <- "X:/LFS-Education Outcomes/qc/final_draft_exhibits/outcomes/"
   
-  # create vector of OHC variable labels
-  ohc_var_lables <- c("Current OHC Placement", "Days in Placement in Academic Year", "Placements in Academic Year", "Past OHC Placement")
-  
-  # create vector of control variable labels
-  control_var_labels <- c("Age", "Male", "ELP", "SPED", "FRL", "Black", "Hispanic", "Asian", "Indian", "School - Total Enrollment", 
-                      "School - FRL Students Per 1,000", "School - SPED Students Per 1,000", "School - ELP Students Per 1,000", 
-                      "School - Non-White Students Per 1,000", "School - Removals Per 1,000 Students", "School - Avg. Math Score", 
-                      "School - Avg. Reading Score", "Acad. Year: 2009", "Acad. Year: 2010", "Acad. Year: 2011", "Acad. Year: 2012")
-  
+  # create vector of student control labels
+  student_control_labels <- c("Age", "Male", "Eligible for Free or Reduced Price Lunch (FRL)", "Disability (SPED)", 
+                              "Limited English Proficiency (ELP)", "Race - Black", "Race - Hispanic", "Race - Asian", "Race - Indian")
+                    
   # create vector of grade dummy labels
-  grade_dummy_labels <- c("Grade 9", "Grade 10", "Grade 11", "Grade 12")
+  grade_dummy_labels <- c("Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12")
+                              
+  # create vector of school control lables          
+  school_control_labels <- paste0("School: ", c("Total Enrollment (Log)", "Number of FRL Students", "SPED Students", "ELP Students",
+                                                 "Non-White Students", "Removals", "Avg. WKCE Math Score", "Avg. WKCE Reading Score"))
+                                  
+  # create vector of academic year lables
+  acad_year_labels <- paste0("Acad. Year: ", c("2009", "2010", "2011", "2012"))
 
   # create vector of omit variables
-  omit_vars <- c("age_in_years_cd", "d_male", "d_elp", "d_sped", "d_frl", "d_race_black", "d_race_hispanic", "d_race_asian", "d_race_indian", 
-                 "sch_pupil_count", "sch_frl_scaled", "sch_sped_scaled", "sch_elp_scaled", "sch_non_white_scaled", "sch_removal_scaled", 
-                 "sch_mean_math_z_score", "sch_mean_rdg_z_score", "d_acad_year_2009", "d_acad_year_2010", "d_acad_year_2011", "d_acad_year_2012",
-                 "d_grade_09", "d_grade_10", "d_grade_11", "d_grade_12")
+  omit_vars <- c("age_in_years_cd", "d_male", "d_elp", "d_sped", "d_frl", "d_race_black", "d_race_hispanic", "d_race_asian", "d_race_indian",
+                 "d_grade08", "d_grade_09", "d_grade_10", "d_grade_11", "d_grade_12", "sch_pup_ct_log", "sch_frl_scaled", "sch_sped_scaled",
+                 "sch_elp_scaled", "sch_non_white_scaled", "sch_removal_scaled", "sch_mean_math_z_score", "sch_mean_rdg_z_score", "d_acad_year_2009",
+                 "d_acad_year_2010", "d_acad_year_2011", "d_acad_year_2012")
 
 ############################
 # export regression output #
@@ -330,6 +332,9 @@
                   se = "robust",
                   Sweave = FALSE,
                   float = "longtable",
+                  coef.names = c("(Intercept)", "Placement in Academic Year", "Placement in Prior Academic Year", student_control_labels,
+                                 grade_dummy_labels, school_control_labels, acad_year_labels, "Number of Placements in Academic Year (Log)",
+                                 "Days in Placement in Academic Year (Log)"),
                   label = "attendance_models",
                   caption = "Attendance Rate"),
         file = paste0(p_dir_out, "models_attendance.tex"))
@@ -339,6 +344,9 @@
                   se = "robust",
                   Sweave = FALSE,
                   float = "longtable",
+                  coef.names = c("(Intercept)", "Placement in Academic Year", "Placement in Prior Academic Year", student_control_labels,
+                                 grade_dummy_labels, school_control_labels, acad_year_labels, "Number of Placements in Academic Year (Log)",
+                                 "Days in Placement in Academic Year (Log)"),
                   label = "removal_models",
                   caption = "Removals"),
         file = paste0(p_dir_out, "models_removals.tex"))
@@ -348,6 +356,9 @@
                   se = "robust",
                   Sweave = FALSE,
                   float = "longtable",
+                  coef.names = c("(Intercept)", "Placement in Academic Year", "Placement in Prior Academic Year", student_control_labels,
+                                 "Grade 9", school_control_labels, acad_year_labels, "Number of Placements in Academic Year (Log)",
+                                 "Days in Placement in Academic Year (Log)"),
                   label = "wkce_math_models",
                   caption = "WKCE Math Score"),
         file = paste0(p_dir_out, "models_wkce_math.tex"))
@@ -357,6 +368,9 @@
                   se = "robust",
                   Sweave = FALSE,
                   float = "longtable",
+                  coef.names = c("(Intercept)", "Placement in Academic Year", "Placement in Prior Academic Year", student_control_labels,
+                                 "Grade 9", school_control_labels, acad_year_labels, "Number of Placements in Academic Year (Log)",
+                                 "Days in Placement in Academic Year (Log)"),
                   label = "wkce_rdg_models",
                   caption = "WKCE Reading Score"),
         file = paste0(p_dir_out, "models_wkce_rdg.tex"))
@@ -367,6 +381,10 @@
                   model.names = c("Attendance Rate", "Removals", "WKCE Math Score", "WKCE Reading Score"),
                   Sweave = FALSE,
                   float = "longtable",
+                  coef.names = c("(Intercept)", paste0("Placement Type: ", c("Foster Home - Relative", "Foster Home - Non-Relative", "Group Home",
+                                                                             "RCC", "Other")), 
+                                 "Placement in Prior Academic Year", student_control_labels, grade_dummy_labels, school_control_labels, 
+                                 acad_year_labels),
                   label = "ptype_models",
                   caption = "Academic Outcomes by Placement Type"),
         file = paste0(p_dir_out, "models_ptype.tex"))
@@ -377,14 +395,19 @@
                   model.names = c("Attendance Rate", "Removals", "WKCE Math Score", "WKCE Reading Score"),
                   Sweave = FALSE,
                   float = "longtable",
-                  lable = "region_models",
+                  coef.names = c("(Intercept)", paste0("Region: ", c("Milwaukee", "Southeast", "South", "West", "Northwest", "Northcentral", 
+                                                                     "Northeast")),
+                                 "Placement in Prior Academic Year", student_control_labels, grade_dummy_labels, school_control_labels, 
+                                 acad_year_labels),
+                  label = "region_models",
                   caption = "Academic Outcomes by Region"),
         file = paste0(p_dir_out, "models_region.tex"))
     
   }
     
     
-    
+    int_reg_mke_ohc + int_reg_se_ohc + int_reg_s_ohc + int_reg_w_ohc + int_reg_nw_ohc + int_reg_nc_ohc + 
+                      int_reg_ne_ohc + flag_prior_plcmt 
   
   stargazer(lm_attend_ohc, lm_attend_n_plcmt, lm_attend_plcmt_days, lm_attend_ptype, 
               type = "html",
