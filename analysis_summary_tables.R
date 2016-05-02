@@ -42,7 +42,7 @@
   # sort by child id, placements, demographics, and academic year
   setorder(full_outcomes_set, lf_child_id, -flag_cur_plcmt, d_male, acad_year, na.last = TRUE)
   
-  # create set with only hs students
+  # create set with only analysis grades (7 - 12) #brule
   analysis_sample <- subset(full_outcomes_set, flag_analysis_grd == 1)
   
   # create set with one row per child, keeping rows with acad year info and demographics first #brule
@@ -411,7 +411,10 @@
                                n_plcmts_sd = round(sd(lf_n_plcmt_acad), 3),
                                plcmt_days_avg = round(mean(tot_plcmt_days_acad), 3),
                                plcmt_days_q50 = round(q50 = quantile(tot_plcmt_days_acad, .5)),
-                               plcmt_days_sd = round(sd(tot_plcmt_days_acad), 3))]
+                               plcmt_days_sd = round(sd(tot_plcmt_days_acad), 3),
+                               plcmt_length_avg = round(mean(plcmt_length_acad), 3),
+                               plcmt_lengths_q50 = round(q50 = quantile(plcmt_length_acad, .5)),
+                               plcmt_length_sd = round(sd(plcmt_length_acad), 3))]
 
   # table - acad year placement statistics by year
   a_plcmt_by_yr <- plcmt_data[, list(n_obs = .N,
@@ -427,7 +430,10 @@
                                      n_plcmts_sd = round(sd(lf_n_plcmt_acad), 3),
                                      plcmt_days_avg = round(mean(tot_plcmt_days_acad), 3),
                                      plcmt_days_q50 = round(q50 = quantile(tot_plcmt_days_acad, .5)),
-                                     plcmt_days_sd = round(sd(tot_plcmt_days_acad), 3)),
+                                     plcmt_days_sd = round(sd(tot_plcmt_days_acad), 3),
+                                     plcmt_length_avg = round(mean(plcmt_length_acad), 3),
+                                     plcmt_lengths_q50 = round(q50 = quantile(plcmt_length_acad, .5)),
+                                     plcmt_length_sd = round(sd(plcmt_length_acad), 3)),
                               by = acad_year]
 
   # table - acad year placement statistics by plcmt type
@@ -444,7 +450,10 @@
                                        n_plcmts_sd = round(sd(lf_n_plcmt_acad), 3),
                                        plcmt_days_avg = round(mean(tot_plcmt_days_acad), 3),
                                        plcmt_days_q50 = round(q50 = quantile(tot_plcmt_days_acad, .5)),
-                                       plcmt_days_sd = round(sd(tot_plcmt_days_acad), 3)),
+                                       plcmt_days_sd = round(sd(tot_plcmt_days_acad), 3),
+                                       plcmt_length_avg = round(mean(plcmt_length_acad), 3),
+                                       plcmt_lengths_q50 = round(q50 = quantile(plcmt_length_acad, .5)),
+                                       plcmt_length_sd = round(sd(plcmt_length_acad), 3)),
                                 by = p_type]
   
   # table - acad year placement statistics by region
@@ -461,7 +470,10 @@
                                          n_plcmts_sd = round(sd(lf_n_plcmt_acad), 3),
                                          plcmt_days_avg = round(mean(tot_plcmt_days_acad), 3),
                                          plcmt_days_q50 = round(q50 = quantile(tot_plcmt_days_acad, .5)),
-                                         plcmt_days_sd = round(sd(tot_plcmt_days_acad), 3)),
+                                         plcmt_days_sd = round(sd(tot_plcmt_days_acad), 3),
+                                         plcmt_length_avg = round(mean(plcmt_length_acad), 3),
+                                         plcmt_lengths_q50 = round(q50 = quantile(plcmt_length_acad, .5)),
+                                         plcmt_length_sd = round(sd(plcmt_length_acad), 3)),
                                   by = lf_region]
 
   # add vars for stacking
