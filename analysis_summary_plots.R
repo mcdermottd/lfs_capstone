@@ -59,6 +59,7 @@
   plcmt_data <- subset(analysis_sample, flag_cur_plcmt == 1)
 
   # create var for avg. length of placement
+  plcmt_data[, plcmt_length := tot_plcmt_days / lf_n_plcmt_tot]
   plcmt_data[, plcmt_length_acad := tot_plcmt_days_acad / lf_n_plcmt_acad]
   
 ################################
@@ -70,6 +71,17 @@
   
   # remove missing placement types
   freq_type_yr <- subset(freq_type_yr, !is.na(dcf_plcmt_type))
+  
+#########################
+# plot ohc info overall #
+#########################  
+  
+  # histogram - avg plcmt length (15 day bins, <= 750 days)
+  plot_hist_avg_pdays <- ggplot(data = subset(plcmt_data, plcmt_length <= 750), aes(x = plcmt_length)) + 
+                                 geom_histogram(binwidth = 15, colour = "black", fill = "dodgerblue4") +
+                                 labs(x = "Average Length of Placement", y = "Number of Children", 
+                                      title = "Average Length of Out-of-Home Care Placement - Overall") + 
+                                 plot_attributes
   
 ####################################
 # plot placement info by acad year #
@@ -92,8 +104,8 @@
   # histogram - avg plcmt length in acad year (15 day bins)
   plot_hist_plcmt_length <- ggplot(data = plcmt_data, aes(x = plcmt_length_acad)) + 
                                    geom_histogram(binwidth = 10, colour = "black", fill = "dodgerblue4") +
-                                   labs(x = "Days Per Placement", y = "Number of Children", 
-                                        title = "Average Out-of-Home Care Placement Length \n in an Academic Year") + 
+                                   labs(x = "Average Placement Length", y = "Number of Children", 
+                                        title = "Average Length of Out-of-Home Care Placement \n in an Academic Year") + 
                                    plot_attributes
 
   # bar plot - total placements by year and placement type
@@ -118,6 +130,7 @@
   # export
   if (p_opt_exp == 1) { 
     
+    ggsave(paste0(p_dir_out, "hist_avg_plcmt_length.png"), plot = plot_hist_avg_pdays,  width = p_width, height = p_height, units = "cm")
     ggsave(paste0(p_dir_out, "hist_acad_n_plcmts.png"), plot = plot_hist_n_plcmt,  width = p_width, height = p_height, units = "cm")
     ggsave(paste0(p_dir_out, "hist_acad_plcmt_days.png"), plot = plot_hist_plcmt_days,  width = p_width, height = p_height, units = "cm")
     ggsave(paste0(p_dir_out, "hist_acad_avg_plcmt_length.png"), plot = plot_hist_plcmt_length, width = p_width, height = p_height, units = "cm")

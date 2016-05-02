@@ -111,10 +111,7 @@
                                           title = "Total Placements in Out-of-Home Care") + 
                                      plot_attributes
   
-  # histogram - avg plcmt length (15 day bins, <= 750 days)
-  plot_hist_avg_days_plcmt_hs <- ggplot(data = subset(plcmt_data_hs, avg_days_plcmt <= 750), aes(x = avg_days_plcmt)) + 
-                                         geom_histogram(binwidth = 15, colour = "black", fill = "dodgerblue4") +
-                                         labs(x = "Days Per Placement", y = "Number of Children", 
-                                              title = "Average Length of Out-of-Home Care Placement - Overall") + 
-                                         plot_attributes
+  
+  
+  
 
