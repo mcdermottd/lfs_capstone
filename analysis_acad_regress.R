@@ -57,12 +57,12 @@
 # create region interaction vars #
 ##################################
   
-  full_outcomes_set[, int_reg_s_ohc := d_lf_region_s * flag_ohc]
-  full_outcomes_set[, int_reg_ne_ohc := d_lf_region_ne * flag_ohc]
-  full_outcomes_set[, int_reg_w_ohc := d_lf_region_w * flag_ohc]
   full_outcomes_set[, int_reg_nc_ohc := d_lf_region_nc * flag_ohc]
+  full_outcomes_set[, int_reg_ne_ohc := d_lf_region_ne * flag_ohc]
   full_outcomes_set[, int_reg_mke_ohc := d_lf_region_mke * flag_ohc]
   full_outcomes_set[, int_reg_se_ohc := d_lf_region_se * flag_ohc]
+  full_outcomes_set[, int_reg_s_ohc := d_lf_region_s * flag_ohc]
+  full_outcomes_set[, int_reg_w_ohc := d_lf_region_w * flag_ohc]
   full_outcomes_set[, int_reg_nw_ohc := d_lf_region_nw * flag_ohc]
 
 ########################
@@ -124,14 +124,14 @@
   # create list of year dummies
   lm_dummies_yr <- c("d_acad_year_2009", "d_acad_year_2010", "d_acad_year_2011", "d_acad_year_2012")
   
-  # create list of region interaction dummies
-  lm_region_interactions <- c("int_reg_mke_ohc", "int_reg_se_ohc", "int_reg_s_ohc", "int_reg_w_ohc", "int_reg_nw_ohc", "int_reg_nc_ohc", 
-                              "int_reg_ne_ohc")
+  # create list of region variables
+  lm_region_vars <- c("int_reg_nc_ohc", "int_reg_ne_ohc", "int_reg_mke_ohc", "int_reg_se_ohc", "int_reg_s_ohc", "int_reg_w_ohc", "int_reg_nw_ohc", 
+                      "d_lf_region_nc", "d_lf_region_ne", "d_lf_region_mke", "d_lf_region_se", "d_lf_region_s", "d_lf_region_w", "d_lf_region_nw")
   
   # create list of vars for subset
   lm_var_list <- c("lf_sch_id", "flag_cur_plcmt", "flag_prior_plcmt", "lf_n_plcmt_acad", "n_plcmt_sq", "n_plcmt_log", "tot_plcmt_days_acad", 
                    "plcmt_days_sq", "plcmt_days_log", "d_p_type_fhome_rel", "d_p_type_fhome_nonrel", "d_p_type_group_home", "d_p_type_rcc", 
-                   "d_p_type_other", lm_student_controls, lm_sch_controls, lm_dummies_yr, lm_dummies_grade, lm_region_interactions)
+                   "d_p_type_other", lm_student_controls, lm_sch_controls, lm_dummies_yr, lm_dummies_grade, lm_region_vars)
   
   # combine for full set of controls
   lm_controls_full <- paste(c(lm_student_controls, lm_dummies_grade, lm_sch_controls, lm_dummies_yr), collapse = " + ")
@@ -181,8 +181,9 @@
   m1d_attend_ptype <- lm(lm_formula, data = attend_set_ptype)
   
   # reg: attendance on region
-  lm_formula <- paste("att_rate_wi ~ int_reg_nc_ohc + int_reg_ne_ohc + int_reg_mke_ohc + int_reg_se_ohc + int_reg_s_ohc + int_reg_w_ohc +
-                      int_reg_nw_ohc + flag_prior_plcmt + ", lm_controls_full)
+  lm_formula <- paste("att_rate_wi ~ flag_cur_plcmt + int_reg_nc_ohc + int_reg_ne_ohc + int_reg_mke_ohc + int_reg_se_ohc + int_reg_s_ohc + 
+                      int_reg_w_ohc + int_reg_nw_ohc + d_lf_region_nc + d_lf_region_ne + d_lf_region_mke + d_lf_region_se + d_lf_region_s + 
+                      d_lf_region_w + ", lm_controls_full)
   m1e_attend_reg <- lm(lm_formula, data = attend_set)
   
   # append var-cov matrix with clustered standard errors as additional model argumented 
@@ -214,8 +215,9 @@
   m2d_remove_ptype <- lm(lm_formula, data = removal_set_ptype)
   
   # reg: removals on region
-  lm_formula <- paste("days_removed_os ~ int_reg_nc_ohc + int_reg_ne_ohc + int_reg_mke_ohc + int_reg_se_ohc + int_reg_s_ohc + int_reg_w_ohc +
-                      int_reg_nw_ohc + flag_prior_plcmt + ", lm_controls_full)
+  lm_formula <- paste("days_removed_os ~ flag_cur_plcmt + int_reg_nc_ohc + int_reg_ne_ohc + int_reg_mke_ohc + int_reg_se_ohc + int_reg_s_ohc + 
+                      int_reg_w_ohc + int_reg_nw_ohc + d_lf_region_nc + d_lf_region_ne + d_lf_region_mke + d_lf_region_se + d_lf_region_s + 
+                      d_lf_region_w + ", lm_controls_full)
   m2e_remove_reg <- lm(lm_formula, data = removal_set)
   
   # append var-cov matrix with clustered standard errors as additional model argumented 
@@ -247,8 +249,9 @@
   m3d_wkce_math_ptype <- lm(lm_formula, data = wkce_math_set_ptype)
   
   # reg: math wkce on region
-  lm_formula <- paste("nxt_zscore_math_kce ~ int_reg_nc_ohc + int_reg_ne_ohc + int_reg_mke_ohc + int_reg_se_ohc + int_reg_s_ohc + int_reg_w_ohc +
-                      int_reg_nw_ohc + flag_prior_plcmt + ", lm_controls_wkce)
+  lm_formula <- paste("nxt_zscore_math_kce ~ flag_cur_plcmt + int_reg_nc_ohc + int_reg_ne_ohc + int_reg_mke_ohc + int_reg_se_ohc + int_reg_s_ohc + 
+                      int_reg_w_ohc + int_reg_nw_ohc + d_lf_region_nc + d_lf_region_ne + d_lf_region_mke + d_lf_region_se + d_lf_region_s + 
+                      d_lf_region_w + ", lm_controls_wkce)
   m3e_wkce_math_reg <- lm(lm_formula, data = wkce_math_set)
   
   # append var-cov matrix with clustered standard errors as additional model argumented 
@@ -280,8 +283,9 @@
   m4d_wkce_rdg_ptype <- lm(lm_formula, data = wkce_rdg_set_ptype)
   
   # reg: reading wkce on region
-  lm_formula <- paste("nxt_zscore_rdg_kce ~ int_reg_mke_ohc + int_reg_se_ohc + int_reg_s_ohc + int_reg_w_ohc + int_reg_nw_ohc + int_reg_nc_ohc + 
-                      int_reg_ne_ohc + flag_prior_plcmt + ", lm_controls_wkce)
+  lm_formula <- paste("nxt_zscore_rdg_kce ~ flag_cur_plcmt + int_reg_nc_ohc + int_reg_ne_ohc + int_reg_mke_ohc + int_reg_se_ohc + int_reg_s_ohc + 
+                      int_reg_w_ohc + int_reg_nw_ohc + d_lf_region_nc + d_lf_region_ne + d_lf_region_mke + d_lf_region_se + d_lf_region_s + 
+                      d_lf_region_w + ", lm_controls_wkce)
   m4e_wkce_rdg_reg <- lm(lm_formula, data = wkce_rdg_set)
   
   # append var-cov matrix with clustered standard errors as additional model argumented 
@@ -345,8 +349,8 @@
                   coef.names = c("(Intercept)", "Placement in Academic Year", "Placement in Prior Academic Year", student_control_labels,
                                  grade_dummy_labels, school_control_labels, acad_year_labels, "Number of Placements in Academic Year (Log)",
                                  "Days in Placement in Academic Year (Log)"),
-                  label = "removal_models",
-                  caption = "Removals"),
+                  label = "discipline_models",
+                  caption = "Disciplinary Action"),
         file = paste0(p_dir_out, "models_removals.tex"))
     
     # output wkce math models
@@ -376,7 +380,7 @@
     # output placement type models
     cat(apsrtable(m1d_attend_ptype, m2d_remove_ptype, m3d_wkce_math_ptype, m4d_wkce_rdg_ptype,
                   se = "robust",
-                  model.names = c("Attendance Rate", "Removals", "WKCE Math Score", "WKCE Reading Score"),
+                  model.names = c("Attendance Rate", "Disciplinary Action", "WKCE Math Score", "WKCE Reading Score"),
                   Sweave = FALSE,
                   float = "longtable",
                   coef.names = c("(Intercept)", paste0("Placement Type: ", c("Foster Home - Relative", "Foster Home - Non-Relative", "Group Home",
@@ -390,19 +394,18 @@
     # output region models
     cat(apsrtable(m1e_attend_reg, m2e_remove_reg, m3e_wkce_math_reg, m4e_wkce_rdg_reg,
                   se = "robust",
-                  model.names = c("Attendance Rate", "Removals", "WKCE Math Score", "WKCE Reading Score"),
+                  model.names = c("Attendance Rate", "Disciplinary Action", "WKCE Math Score", "WKCE Reading Score"),
                   Sweave = FALSE,
                   float = "longtable",
-                  coef.names = c("(Intercept)", paste0("Region ", c("1 (Northcentral)","2 (Northeast)", "3 (Milwaukee)", "4 (Southeast)", "5 (South)",
-                                                                    "6 (West)", "7 (Northwest)")),
-                                 "Placement in Prior Academic Year", student_control_labels, grade_dummy_labels, school_control_labels, 
-                                 acad_year_labels),
+                  coef.names = c("(Intercept)", "Placement in Academic Year", paste0("Region ", c("1 (Northcentral)","2 (Northeast)", "3 (Milwaukee)",
+                                                                                                  "4 (Southeast)", "5 (South)", "6 (West)", 
+                                                                                                  "7 (Northwest)"), " * OHC"),
+                                 paste0("Region ", c("1", "2", "3", "4", "5", "6")), student_control_labels, grade_dummy_labels,
+                                 school_control_labels, acad_year_labels),
                   label = "region_models",
                   caption = "Academic Outcomes by Region"),
         file = paste0(p_dir_out, "models_region.tex"))
     
   }
-
-  
   
     

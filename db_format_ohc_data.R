@@ -141,7 +141,7 @@
       # merge aggregate placement info with child info
       acad_yr_plcmt_full <- ea_merge(unique_child_set, agg_acad_plcmt, "child_id", opt_print = 0)
       
-      # remove row if total placement days <=14 days #brule
+      # remove row if total placement days <= 14 days #brule
       acad_yr_plcmt_full <- subset(acad_yr_plcmt_full, tot_plcmt_days_acad > 14)
       
       # merge on wide placement info
