@@ -127,7 +127,7 @@
       setorder(acad_yr_set, child_id, -plcmt_days_acad)
       
       # create set with one row per child, keeping record with most placement days #brule
-      unique_child_set <- ea_no_dups(acad_yr_set, "child_id")
+      unique_child_set <- ea_no_dups(acad_yr_set, "child_id", opt_print = 0)
       
       # remove specific placement start / end info
       unique_child_set <- subset(unique_child_set, select = c(child_id, child_gender, child_dob, child_age, child_race, child_ethnicity, 
