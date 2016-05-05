@@ -100,7 +100,7 @@
   combined_ids[, flag_no_dpi := ifelse(ea_scan(lf_child_id, 1, "_") == "dcf" & flag_merge == 0 & flag_ohc == 1, 1, 0)]
   combined_ids[, flag_no_ohc := ifelse(ea_scan(lf_child_id, 1, "_") == "dcf" & flag_ohc == 0, 1, 0)]
 
-  # subset out unmerged ohc ids #brule
+  # remove unmerged ohc ids #brule
   merged_ids <- subset(combined_ids, flag_no_ohc != 1 & flag_no_dpi != 1)
   
   # remove unneeded merge flags
@@ -140,6 +140,25 @@
   # create frequency table of DPI merge rates
   a_merge_stats_dpi_yr <- ea_table(dpi_compare, c("acad_year", "id_merge"), opt_percent = 1)
   a_merge_stats_dpi_grd <- ea_table(dpi_compare, c("grade_level_cd", "id_merge"), opt_percent = 1)
+
+############################
+# investigate unmerged ids #
+############################
+  
+  # subset to separate sets of unmerged ids
+  ohc_unmerged_ids <- subset(ohc_ids_merge, flag_no_dpi == 1, select = c(lf_child_id, flag_no_dpi))
+  dpi_unmerged_ids <- subset(ohc_ids_merge, flag_no_ohc == 1, select = c(lf_child_id, flag_no_ohc))
+
+  # create full set of records for unmerged students
+  ohc_unmerged_set <- ea_merge(ohc_unmerged_ids, format_ohc_set, "lf_child_id", "x", opt_print = 0)
+  dpi_unmerged_set <- ea_merge(dpi_unmerged_ids, format_dpi_set, "lf_child_id", "x", opt_print = 0)
+
+  # sort based on age
+  ohc_unmerged_set[, child_age := as.numeric(child_age)]
+  setorder(ohc_unmerged_set, lf_child_id, child_age)
+
+  # take frequence of chid age in the DCF data
+  a_unmerged_age <- ea_table(ohc_unmerged_set, "child_age", opt_percent = 1)
   
 ##############################################
 # merge on dpi academic year info and format #
