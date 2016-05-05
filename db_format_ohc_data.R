@@ -141,6 +141,9 @@
       # merge aggregate placement info with child info
       acad_yr_plcmt_full <- ea_merge(unique_child_set, agg_acad_plcmt, "child_id", opt_print = 0)
       
+      # create set of ids for observations removed in next step
+      dropped_acad_obs <- subset(acad_yr_plcmt_full, tot_plcmt_days_acad <= 14, select = c(child_id))
+      
       # remove row if total placement days <= 14 days #brule
       acad_yr_plcmt_full <- subset(acad_yr_plcmt_full, tot_plcmt_days_acad > 14)
       
@@ -161,9 +164,17 @@
     acad_yr_plcmt_full[] <- lapply(acad_yr_plcmt_full[], as.character)
 
     # stack sets
-    if (m_year == p_plcmt_years[1]) { stacked_acad_yr_set <- acad_yr_plcmt_full }
-    if (m_year != p_plcmt_years[1]) { stacked_acad_yr_set <- rbind(stacked_acad_yr_set, acad_yr_plcmt_full, use.names = TRUE, fill = TRUE) }
-
+    if (m_year == p_plcmt_years[1]) { 
+      
+      stacked_acad_yr_set <- acad_yr_plcmt_full 
+      stacked_dropped_ids <- dropped_acad_obs
+    }
+    
+    if (m_year != p_plcmt_years[1]) { 
+      
+      stacked_acad_yr_set <- rbind(stacked_acad_yr_set, acad_yr_plcmt_full, use.names = TRUE, fill = TRUE)
+      stacked_dropped_ids <- rbind(stacked_dropped_ids, dropped_acad_obs)
+    }
   }
   
 ##############################################
@@ -230,6 +241,37 @@
   
   # merge agg placement info with stacked set
   ohc_analysis_set <- ea_merge(agg_plcmt_ohc, sub_stacked_acad_set, "child_id", "y", opt_print = 0)
+
+###################################
+# investigate dropped student ids #
+###################################
+  
+  # subset stacked acad set to ids and remove duplicates
+  acad_ids <- subset(stacked_acad_yr_set, select = c(child_id))
+  acad_ids <- ea_no_dups(acad_ids, "child_id")
+  acad_ids[, flag_acad_id := 1]
+  
+  # subset analysis set to ids and remove duplicates
+  analysis_ids <- subset(ohc_analysis_set, select = c(child_id))
+  analysis_ids <- ea_no_dups(analysis_ids, "child_id")
+  analysis_ids[, flag_analysis_id := 1]
+  
+  # remove duplicates from acad yr dropped ids
+  stacked_dropped_ids <- ea_no_dups(stacked_dropped_ids, "child_id", opt_print = 0)
+  stacked_dropped_ids[, flag_acad_drop := 1]
+
+  # convert child id to character variable
+  stacked_dropped_ids[, child_id := as.character(child_id)]
+  
+  # mrege and compare ids
+  id_compare_set <- ea_merge(stacked_dropped_ids, acad_ids, "child_id")
+  id_compare_set <- ea_merge(id_compare_set, analysis_ids, "child_id")
+
+  # remove ids in analysis set
+  id_compare_set <- subset(id_compare_set, is.na(flag_analysis_id))
+  
+  # create table of id scenarios
+  a_id_matches <- ea_table(id_compare_set, c("flag_acad_drop", "flag_acad_id"))
   
 #####################
 # format and export #
