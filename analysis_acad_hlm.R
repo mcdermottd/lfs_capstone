@@ -17,6 +17,7 @@
 
   # load packages
   library(lme4)
+  library(lattice)
   library(arm)
   library(merTools)
   library(apsrtable)
@@ -43,15 +44,13 @@
   # copy input sets
   full_outcomes_set <- copy(in_outcomes_set)
   
-  # transform number of placement var
-  full_outcomes_set[, n_plcmt_sq := ifelse(lf_n_plcmt_acad != 0, lf_n_plcmt_acad * lf_n_plcmt_acad, 0)]
+  # transform number of placement var (log)
   full_outcomes_set[, n_plcmt_log := ifelse(lf_n_plcmt_acad != 0, log(lf_n_plcmt_acad), 0)]
 
-  # transform placement days var
-  full_outcomes_set[, plcmt_days_sq := ifelse(tot_plcmt_days_acad != 0, tot_plcmt_days_acad * tot_plcmt_days_acad, 0)]
+  # transform placement days var (log)
   full_outcomes_set[, plcmt_days_log := ifelse(tot_plcmt_days_acad != 0, log(tot_plcmt_days_acad), 0)]
   
-  # transform school enrollment var
+  # transform school enrollment var (log)
   full_outcomes_set[, sch_pup_ct_log := ifelse(sch_pupil_count != 0, log(sch_pupil_count), 0)]
 
 ########################
@@ -66,12 +65,35 @@
 
   # create set with only analysis grades (7 - 12) #brule
   analysis_sample <- subset(full_outcomes_set, flag_analysis_grd == 1)
-  
+
   # remove observations for ohc students occuring prior to a placement #brule
   analysis_sample <- subset(analysis_sample, !(flag_ohc == 1 & flag_cur_plcmt == 0 & flag_prior_plcmt == 0))
   
   # create set with only 7th and 9th graders with next year test score for wkce analysis #brule
   analysis_wkce <- subset(analysis_sample, (grade %in% c("07", "09") & !is.na(nxt_zscore_math_kce)))
+
+###################################
+# summarize variables of interest #
+###################################
+  
+  # subset to ohc and outcome vars to summarize
+  melt_vars <- subset(analysis_sample, select = c(lf_child_id, lf_sch_id, lf_region, acad_year, flag_cur_plcmt, flag_prior_plcmt, n_plcmt_log,
+                                                  plcmt_days_log, sch_pup_ct_log, att_rate_wi, days_removed_os, nxt_zscore_math_kce, 
+                                                  nxt_zscore_rdg_kce, flag_col_rdy_nxt))
+  
+  # melt ohc data long to summarize
+  summ_vars_long <- melt.data.table(melt_vars, id.vars = c("lf_child_id", "lf_sch_id", "lf_region", "acad_year"))
+  
+  # remove NA values
+  summ_vars_long <- subset(summ_vars_long, !is.na(value))
+  
+  # table - summarize vars overall
+  a_summ_vars <- summ_vars_long[, list(n_obs = length(value),
+                                       mean = round(mean(value), 3),
+                                       sd = round(sd(value), 3), 
+                                       min = round(min(value), 3),
+                                       max = round(max(value), 3)),
+                                    by = variable]
   
 #############################
 # set regression parameters #
@@ -95,15 +117,12 @@
   lm_controls_full <- paste(c(lm_student_controls, lm_dummies_grade, lm_sch_controls, lm_dummies_yr), collapse = " + ")
   lm_controls_wkce <- paste(c(lm_student_controls, "d_grade_09", lm_sch_controls, lm_dummies_yr), collapse = " + ")
 
-#############################
-# multi-level investigation #
-#############################
+#################################
+# multilevel data investigation #
+#################################
 
   # lmer: attendance on empty model, grouped by county
   m1_attend_hlm_empty <- lmer(att_rate_wi ~ (1 | lf_county), data = analysis_sample)
-
-  # display results
-  display(m1_attend_hlm_empty)
   
 ############################
 # regressions - attendence #
@@ -113,23 +132,18 @@
   lm_formula <- paste("att_rate_wi ~ flag_cur_plcmt + flag_prior_plcmt + ", lm_controls_full)
   m1a_attend_pooled <- lm(lm_formula, data = analysis_sample)
 
-  # display results
-  display(m1a_attend_pooled)
-  
   # glm: attendance on OHC flags, grouped by county
   glm_formula <- paste("att_rate_wi ~ flag_cur_plcmt + flag_prior_plcmt + lf_county + ", lm_controls_full)
   m1b_attend_cty_grp <- glm(glm_formula, data = analysis_sample)
 
-  # display results
-  display(m1b_attend_cty_grp)
-  
   # lmer: attendance on OHC flags, random region intercepts
   lmer_formula <- paste("att_rate_wi ~ flag_cur_plcmt + flag_prior_plcmt + (1 | lf_county) + ", lm_controls_full)
-  m1b_attend_hlm_cty <- lmer(lmer_formula, data = analysis_sample)
-
-  # display results
-  display(m1b_attend_hlm_cty)
-  summary(m1b_attend_hlm_cty)
+  m1c_attend_hlm_cty <- lmer(lmer_formula, data = analysis_sample)
+  
+  # save individual county intercepts
+  re_m1c <- ranef(m1c_attend_hlm_cty, condVar = TRUE, whichel = "county")
+  
+  dotplot(re1)
   
   
   
@@ -137,11 +151,7 @@
   
   
   
-  
-  
-  
-  
-  
+
   # reg: attendance on log number of placements
   lm_formula <- paste("att_rate_wi ~ n_plcmt_log + flag_prior_plcmt + ", lm_controls_full)
   m1b_attend_plcmts_log <- lm(lm_formula, data = attend_set)
@@ -160,122 +170,13 @@
                       int_reg_w_ohc + d_lf_region_nc + d_lf_region_ne + d_lf_region_mke + d_lf_region_se + d_lf_region_s + d_lf_region_w + ",
                       lm_controls_full)
   m1e_attend_reg <- lm(lm_formula, data = attend_set)
-  
-  # append var-cov matrix with clustered standard errors as additional model argumented 
-  m1a_attend_ohc$se <- func_cl_vcov(m1a_attend_ohc, attend_set$lf_sch_id)
-  m1b_attend_plcmts_log$se <- func_cl_vcov(m1b_attend_plcmts_log, attend_set$lf_sch_id)
-  m1c_attend_pdays_log$se <- func_cl_vcov(m1c_attend_pdays_log, attend_set$lf_sch_id)
-  m1d_attend_ptype$se <- func_cl_vcov(m1d_attend_ptype, attend_set_ptype$lf_sch_id)
-  m1e_attend_reg$se <- func_cl_vcov(m1e_attend_reg, attend_set$lf_sch_id)
-
-##########################
-# regressions - removals #
-##########################
-
-  # reg: removals on OHC flags
-  lm_formula <- paste("days_removed_os ~ flag_cur_plcmt + flag_prior_plcmt + ", lm_controls_full)
-  m2a_remove_ohc <- lm(lm_formula, data = removal_set)
-  
-  # reg: removals on log number of placements
-  lm_formula <- paste("days_removed_os ~ n_plcmt_log + flag_prior_plcmt + ", lm_controls_full)
-  m2b_remove_plcmts_log <- lm(lm_formula, data = removal_set)
-  
-  # reg: removals on log total placement days
-  lm_formula <- paste("days_removed_os ~ plcmt_days_log + flag_prior_plcmt + ", lm_controls_full)
-  m2c_remove_pdays_log <- lm(lm_formula, data = removal_set)
-
-  # reg: removals on type of OHC
-  lm_formula <- paste("days_removed_os ~ d_p_type_fhome_rel + d_p_type_fhome_nonrel + d_p_type_group_home + d_p_type_rcc + flag_prior_plcmt + ",
-                      lm_controls_full)
-  m2d_remove_ptype <- lm(lm_formula, data = removal_set_ptype)
-  
-  # reg: removals on region
-  lm_formula <- paste("days_removed_os ~ flag_ohc + int_reg_nc_ohc + int_reg_ne_ohc + int_reg_mke_ohc + int_reg_se_ohc + int_reg_s_ohc + 
-                      int_reg_w_ohc + d_lf_region_nc + d_lf_region_ne + d_lf_region_mke + d_lf_region_se + d_lf_region_s + d_lf_region_w + ",
-                      lm_controls_full)
-  m2e_remove_reg <- lm(lm_formula, data = removal_set)
-  
-  # append var-cov matrix with clustered standard errors as additional model argumented 
-  m2a_remove_ohc$se <- func_cl_vcov(m2a_remove_ohc, removal_set$lf_sch_id)
-  m2b_remove_plcmts_log$se <- func_cl_vcov(m2b_remove_plcmts_log, removal_set$lf_sch_id)
-  m2c_remove_pdays_log$se <- func_cl_vcov(m2c_remove_pdays_log, removal_set$lf_sch_id)
-  m2d_remove_ptype$se <- func_cl_vcov(m2d_remove_ptype, removal_set_ptype$lf_sch_id)
-  m2e_remove_reg$se <- func_cl_vcov(m2e_remove_reg, removal_set$lf_sch_id)
-
-###########################
-# regressions - wkce math #
-###########################
-
-  # reg: math wkce on OHC flags
-  lm_formula <- paste("nxt_zscore_math_kce ~ flag_cur_plcmt + flag_prior_plcmt + ", lm_controls_wkce)
-  m3a_wkce_math_ohc <- lm(lm_formula, data = wkce_math_set)
-  
-  # reg: math wkce on log number of placements
-  lm_formula <- paste("nxt_zscore_math_kce ~ n_plcmt_log + flag_prior_plcmt + ", lm_controls_wkce)
-  m3b_wkce_math_plcmts_log <- lm(lm_formula, data = wkce_math_set)
-  
-  # reg: math wkce on log total placement days
-  lm_formula <- paste("nxt_zscore_math_kce ~ plcmt_days_log + flag_prior_plcmt + ", lm_controls_wkce)
-  m3c_wkce_math_pdays_log <- lm(lm_formula, data = wkce_math_set)
-
-  # reg: math wkce on type of OHC
-  lm_formula <- paste("nxt_zscore_math_kce ~ d_p_type_fhome_rel + d_p_type_fhome_nonrel + d_p_type_group_home + d_p_type_rcc + flag_prior_plcmt + ",
-                      lm_controls_wkce)
-  m3d_wkce_math_ptype <- lm(lm_formula, data = wkce_math_set_ptype)
-  
-  # reg: math wkce on region
-  lm_formula <- paste("nxt_zscore_math_kce ~ flag_ohc + int_reg_nc_ohc + int_reg_ne_ohc + int_reg_mke_ohc + int_reg_se_ohc + int_reg_s_ohc + 
-                      int_reg_w_ohc + d_lf_region_nc + d_lf_region_ne + d_lf_region_mke + d_lf_region_se + d_lf_region_s + d_lf_region_w + ",
-                      lm_controls_wkce)
-  m3e_wkce_math_reg <- lm(lm_formula, data = wkce_math_set)
-  
-  # append var-cov matrix with clustered standard errors as additional model argumented 
-  m3a_wkce_math_ohc$se <- func_cl_vcov(m3a_wkce_math_ohc, wkce_math_set$lf_sch_id)
-  m3b_wkce_math_plcmts_log$se <- func_cl_vcov(m3b_wkce_math_plcmts_log, wkce_math_set$lf_sch_id)
-  m3c_wkce_math_pdays_log$se <- func_cl_vcov(m3c_wkce_math_pdays_log, wkce_math_set$lf_sch_id)
-  m3d_wkce_math_ptype$se <- func_cl_vcov(m3d_wkce_math_ptype, wkce_math_set_ptype$lf_sch_id)
-  m3e_wkce_math_reg$se <- func_cl_vcov(m3e_wkce_math_reg, wkce_math_set$lf_sch_id)
-  
-##############################
-# regressions - wkce reading #
-##############################
-
-  # reg: reading wkce on OHC flags
-  lm_formula <- paste("nxt_zscore_rdg_kce ~ flag_cur_plcmt + flag_prior_plcmt + ", lm_controls_wkce)
-  m4a_wkce_rdg_ohc <- lm(lm_formula, data = wkce_rdg_set)
-  
-  # reg: reading wkce on log number of placements
-  lm_formula <- paste("nxt_zscore_rdg_kce ~ n_plcmt_log + flag_prior_plcmt + ", lm_controls_wkce)
-  m4b_wkce_rdg_plcmts_log <- lm(lm_formula, data = wkce_rdg_set)
-  
-  # reg: reading wkce on log total placement days
-  lm_formula <- paste("nxt_zscore_rdg_kce ~ plcmt_days_log + flag_prior_plcmt + ", lm_controls_wkce)
-  m4c_wkce_rdg_pdays_log <- lm(lm_formula, data = wkce_rdg_set)
-
-  # reg: reading wkce on type of OHC
-  lm_formula <- paste("nxt_zscore_rdg_kce ~ d_p_type_fhome_rel + d_p_type_fhome_nonrel + d_p_type_group_home + d_p_type_rcc + flag_prior_plcmt + ",
-                      lm_controls_wkce)
-  m4d_wkce_rdg_ptype <- lm(lm_formula, data = wkce_rdg_set_ptype)
-  
-  # reg: reading wkce on region
-  lm_formula <- paste("nxt_zscore_rdg_kce ~ flag_ohc + int_reg_nc_ohc + int_reg_ne_ohc + int_reg_mke_ohc + int_reg_se_ohc + int_reg_s_ohc + 
-                      int_reg_w_ohc + d_lf_region_nc + d_lf_region_ne + d_lf_region_mke + d_lf_region_se + d_lf_region_s + d_lf_region_w + ",
-                      lm_controls_wkce)
-  m4e_wkce_rdg_reg <- lm(lm_formula, data = wkce_rdg_set)
-  
-  # append var-cov matrix with clustered standard errors as additional model argumented 
-  m4a_wkce_rdg_ohc$se <- func_cl_vcov(m4a_wkce_rdg_ohc, wkce_rdg_set$lf_sch_id)
-  m4b_wkce_rdg_plcmts_log$se <- func_cl_vcov(m4b_wkce_rdg_plcmts_log, wkce_rdg_set$lf_sch_id)
-  m4c_wkce_rdg_pdays_log$se <- func_cl_vcov(m4c_wkce_rdg_pdays_log, wkce_rdg_set$lf_sch_id)
-  m4d_wkce_rdg_ptype$se <- func_cl_vcov(m4d_wkce_rdg_ptype, wkce_rdg_set_ptype$lf_sch_id)
-  m4e_wkce_rdg_reg$se <- func_cl_vcov(m4e_wkce_rdg_reg, wkce_rdg_set$lf_sch_id)
-
+ 
 ######################
 # format export vars #
 ######################
 
   # set output director
-  p_dir_out <- "X:/LFS-Education Outcomes/qc/final_draft_exhibits/outcomes/"
+  p_dir_out <- "C:/Users/Drew/Dropbox/course_data/edpsych_964/final_paper/"
   
   # create vector of student control labels
   student_control_labels <- c("Age", "Male", "Eligible for Free or Reduced Price Lunch (FRL)", "Disability (SPED)", 
