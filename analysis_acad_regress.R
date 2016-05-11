@@ -314,12 +314,6 @@
   # create vector of academic year lables
   acad_year_labels <- paste0("Acad. Year: ", c("2009", "2010", "2011", "2012"))
 
-  # create vector of omit variables
-  omit_vars <- c("age_in_years_cd", "d_male", "d_elp", "d_sped", "d_frl", "d_race_black", "d_race_hispanic", "d_race_asian", "d_race_indian",
-                 "d_grade08", "d_grade_09", "d_grade_10", "d_grade_11", "d_grade_12", "sch_pup_ct_log", "sch_frl_scaled", "sch_sped_scaled",
-                 "sch_elp_scaled", "sch_non_white_scaled", "sch_removal_scaled", "sch_mean_math_z_score", "sch_mean_rdg_z_score", "d_acad_year_2009",
-                 "d_acad_year_2010", "d_acad_year_2011", "d_acad_year_2012")
-
 ############################
 # export regression output #
 ############################
