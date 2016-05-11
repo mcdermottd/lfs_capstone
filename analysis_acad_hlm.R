@@ -37,22 +37,22 @@
   # load analysis set
   in_outcomes_set <- ea_load("X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata")
 
-###################################
-# create variable transformations #
-###################################
+###############################
+# structure vars for analysis #
+##################################
 
   # copy input sets
   full_outcomes_set <- copy(in_outcomes_set)
   
-  # transform number of placement var (log)
-  full_outcomes_set[, n_plcmt_log := ifelse(lf_n_plcmt_acad != 0, log(lf_n_plcmt_acad), 0)]
-
-  # transform placement days var (log)
-  full_outcomes_set[, plcmt_days_log := ifelse(tot_plcmt_days_acad != 0, log(tot_plcmt_days_acad), 0)]
-  
   # transform school enrollment var (log)
   full_outcomes_set[, sch_pup_ct_log := ifelse(sch_pupil_count != 0, log(sch_pupil_count), 0)]
-
+  
+  # grand center outcome vars
+  full_outcomes_set[, ':=' (att_rate_ctr = att_rate_wi - mean(att_rate_wi, na.rm = TRUE), 
+                            days_removed_ctr = days_removed_os - mean(days_removed_os, na.rm = TRUE), 
+                            nxt_math_ctr = nxt_zscore_math_kce - mean(nxt_zscore_math_kce, na.rm = TRUE),
+                            nxt_rdg_ctr = nxt_zscore_rdg_kce - mean(nxt_zscore_rdg_kce, na.rm = TRUE))]
+  
 ########################
 # subset analysis data #
 ########################
@@ -77,9 +77,8 @@
 ###################################
   
   # subset to ohc and outcome vars to summarize
-  melt_vars <- subset(analysis_sample, select = c(lf_child_id, lf_sch_id, lf_region, acad_year, flag_cur_plcmt, flag_prior_plcmt, n_plcmt_log,
-                                                  plcmt_days_log, sch_pup_ct_log, att_rate_wi, days_removed_os, nxt_zscore_math_kce, 
-                                                  nxt_zscore_rdg_kce, flag_col_rdy_nxt))
+  melt_vars <- subset(analysis_sample, select = c(lf_child_id, lf_sch_id, lf_region, acad_year, flag_cur_plcmt, flag_prior_plcmt, att_rate_ctr, 
+                                                  days_removed_ctr, nxt_math_ctr, nxt_rdg_ctr))
   
   # melt ohc data long to summarize
   summ_vars_long <- melt.data.table(melt_vars, id.vars = c("lf_child_id", "lf_sch_id", "lf_region", "acad_year"))
@@ -122,55 +121,52 @@
 #################################
 
   # lmer: attendance on empty model, grouped by county
-  m1_attend_hlm_empty <- lmer(att_rate_wi ~ (1 | lf_county), data = analysis_sample)
+  m1_attend_hlm_empty <- lmer(att_rate_ctr ~ (1 | lf_county), data = analysis_sample)
   
 ############################
 # regressions - attendence #
 ############################
 
   # lm: attendance on OHC flags, pooled across counties
-  lm_formula <- paste("att_rate_wi ~ flag_cur_plcmt + flag_prior_plcmt + ", lm_controls_full)
+  lm_formula <- paste("att_rate_ctr ~ flag_cur_plcmt + flag_prior_plcmt + ", lm_controls_full)
   m1a_attend_pooled <- lm(lm_formula, data = analysis_sample)
 
   # glm: attendance on OHC flags, grouped by county
-  glm_formula <- paste("att_rate_wi ~ flag_cur_plcmt + flag_prior_plcmt + lf_county + ", lm_controls_full)
+  glm_formula <- paste("att_rate_ctr ~ flag_cur_plcmt + flag_prior_plcmt + lf_county + ", lm_controls_full)
   m1b_attend_cty_grp <- glm(glm_formula, data = analysis_sample)
 
   # lmer: attendance on OHC flags, random region intercepts
-  lmer_formula <- paste("att_rate_wi ~ flag_cur_plcmt + flag_prior_plcmt + (1 | lf_county) + ", lm_controls_full)
+  lmer_formula <- paste("att_rate_ctr ~ flag_cur_plcmt + flag_prior_plcmt + (1 | lf_county) + ", lm_controls_full)
   m1c_attend_hlm_cty <- lmer(lmer_formula, data = analysis_sample)
+  
+  # lmer: attendance, random region intercepts with current placement at level-2
+  lmer_formula <- paste("att_rate_ctr ~ flag_prior_plcmt + (1 + flag_cur_plcmt | lf_county) + ", lm_controls_full)
+  m1d_attend_hlm_cty_cur <- lmer(lmer_formula, data = analysis_sample)
+  
+  
   
   # save individual county intercepts
   re_m1c <- ranef(m1c_attend_hlm_cty, condVar = TRUE, whichel = "county")
   
   dotplot(re1)
-  
-  
-  
   shinyMer(m1b_attend_hlm_cty, simData = analysis_sample[1:100, ])
-  
-  
-  
 
-  # reg: attendance on log number of placements
-  lm_formula <- paste("att_rate_wi ~ n_plcmt_log + flag_prior_plcmt + ", lm_controls_full)
-  m1b_attend_plcmts_log <- lm(lm_formula, data = attend_set)
-
-  # reg: attendance on log total placement days
-  lm_formula <- paste("att_rate_wi ~ plcmt_days_log + flag_prior_plcmt + ", lm_controls_full)
-  m1c_attend_pdays_log <- lm(lm_formula, data = attend_set)
-
-  # reg: attendance on type of OHC
-  lm_formula <- paste("att_rate_wi ~ d_p_type_fhome_rel + d_p_type_fhome_nonrel + d_p_type_group_home + d_p_type_rcc + flag_prior_plcmt + ", 
-                      lm_controls_full)
-  m1d_attend_ptype <- lm(lm_formula, data = attend_set_ptype)
+################################
+# regressions - other outcomes #
+################################
   
-  # reg: attendance on region
-  lm_formula <- paste("att_rate_wi ~ flag_ohc + int_reg_nc_ohc + int_reg_ne_ohc + int_reg_mke_ohc + int_reg_se_ohc + int_reg_s_ohc + 
-                      int_reg_w_ohc + d_lf_region_nc + d_lf_region_ne + d_lf_region_mke + d_lf_region_se + d_lf_region_s + d_lf_region_w + ",
-                      lm_controls_full)
-  m1e_attend_reg <- lm(lm_formula, data = attend_set)
- 
+  # lmer: removals, random region intercepts with current placement at level-2
+  lmer_formula <- paste("days_removed_ctr ~ flag_prior_plcmt + (1 + flag_cur_plcmt | lf_county) + ", lm_controls_full)
+  m2a_remove_hlm_cty_cur <- lmer(lmer_formula, data = analysis_sample)
+  
+  # lmer: wkce math, random region intercepts with current placement at level-2
+  lmer_formula <- paste("nxt_math_ctr ~ flag_prior_plcmt + (1 + flag_cur_plcmt | lf_county) + ", lm_controls_full)
+  m3a_kce_math_hlm_cty_cur <- lmer(lmer_formula, data = analysis_sample)
+  
+  # lmer: wkce reading, random region intercepts with current placement at level-2
+  lmer_formula <- paste("nxt_rdg_ctr ~ flag_prior_plcmt + (1 + flag_cur_plcmt | lf_county) + ", lm_controls_full)
+  m4a_kce_rdg_hlm_cty_cur <- lmer(lmer_formula, data = analysis_sample)
+  
 ######################
 # format export vars #
 ######################
