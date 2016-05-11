@@ -141,6 +141,44 @@
   lm_var_list <- c("lf_sch_id", "flag_ohc", "flag_cur_plcmt", "flag_prior_plcmt", "lf_n_plcmt_acad", "n_plcmt_log", "tot_plcmt_days_acad", 
                    lm_student_controls, lm_sch_controls, lm_dummies_yr, lm_dummies_grade, lm_region_vars)
   
+############################
+# math wkce (same process) #
+############################
+    
+  # reg: math wkce on OHC flags
+  lm_formula <- paste("nxt_zscore_math_kce ~ flag_cur_plcmt + flag_prior_plcmt + ", lm_controls_wkce)
+  m3a_wkce_math <- lm(lm_formula, data = wkce_math_set)
+
+  # math wkce: compute predicted values and combine with orginal data
+  pred_math_wkce_set <- data.table(pred_nxt_math_kce = fitted(m3a_wkce_math))
+  wkce_math_set <- cbind(wkce_math_set, pred_math_wkce_set)
+  
+  # subset to ohc and outcome vars to summarize
+  melt_vars <- subset(wkce_math_set, select = c(flag_cur_plcmt, flag_prior_plcmt, nxt_zscore_math_kce, pred_nxt_math_kce))
+  
+  # melt ohc data long to summarize
+  summ_vars_long <- melt.data.table(melt_vars, id.vars = c("flag_cur_plcmt", "flag_prior_plcmt"))
+  
+  # table - summarize vars overall
+  a_math_wkce_vars <- summ_vars_long[, list(n_obs = length(value),
+                                           mean = mean(value),
+                                           sd = sd(value),
+                                           se = sd(value) / sqrt(length(value))),
+                                     by = c("flag_cur_plcmt", "flag_prior_plcmt", "variable")]
+  
+  ztest <- wkce_math_set[, list(act_mean = mean(nxt_zscore_math_kce),
+                                pred_mean = mean(pred_nxt_math_kce))?]
+                         by = flag_cur_plcmt]
+  
+  
+###############################
+# reading wkce (same process) #
+###############################
+    
+  # reg: reading wkce on OHC flags
+  lm_formula <- paste("nxt_zscore_rdg_kce ~ flag_cur_plcmt + flag_prior_plcmt + ", lm_controls_wkce)
+  m4a_wkce_rdg_ohc <- lm(lm_formula, data = wkce_rdg_set)
+  
 ################################################
 # attend: run reg and compute predicted values #
 ################################################
@@ -148,24 +186,7 @@
   # reg: attendance on OHC flags
   lm_formula <- paste("att_rate_wi ~ flag_cur_plcmt + flag_prior_plcmt + ", lm_controls_full)
   m1a_attend <- lm(lm_formula, data = attend_set)
-  
-  # attend: compute predicted values and combine with orginal data
-  pred_attend_set <- data.table(pred_att_rate = predict.lm(m1a_attend))
-  attend_set <- cbind(attend_set, pred_attend_set)
-  
-  # subset to ohc and outcome vars to summarize
-  melt_vars <- subset(attend_set, select = c(flag_cur_plcmt, flag_prior_plcmt, att_rate_wi, pred_att_rate))
-  
-  # melt ohc data long to summarize
-  summ_vars_long <- melt.data.table(melt_vars, id.vars = c("flag_cur_plcmt", "flag_prior_plcmt"))
-  
-  # table - summarize vars overall
-  a_attend_vars <- summ_vars_long[, list(n_obs = length(value),
-                                         mean = mean(value),
-                                         sd = sd(value),
-                                         se = sd(value) / sqrt(length(value))),
-                                  by = c("flag_cur_plcmt", "flag_prior_plcmt", "variable")]
-  
+
 ##########################
 # removal (same process) #
 ##########################
@@ -174,65 +195,7 @@
   lm_formula <- paste("days_removed_os ~ flag_cur_plcmt + flag_prior_plcmt + ", lm_controls_full)
   m2a_remove <- lm(lm_formula, data = removal_set)
 
-  # removal: compute predicted values and combine with orginal data
-  pred_remove_set <- data.table(pred_days_remove = predict.lm(m2a_remove))
-  removal_set <- cbind(removal_set, pred_remove_set)
   
-  # subset to ohc and outcome vars to summarizet
-  melt_vars <- subset(removal_set, select = c(flag_cur_plcmt, flag_prior_plcmt, days_removed_os, pred_days_remove))
-  
-  # melt ohc data long to summarize
-  summ_vars_long <- melt.data.table(melt_vars, id.vars = c("flag_cur_plcmt", "flag_prior_plcmt"))
-  
-  # table - summarize vars overall
-  a_remove_vars <- summ_vars_long[, list(n_obs = length(value),
-                                         mean = mean(value),
-                                         sd = sd(value),
-                                         se = sd(value) / sqrt(length(value))),
-                                  by = c("flag_cur_plcmt", "flag_prior_plcmt", "variable")]
-  
-  
-############################
-# math wkce (same process) #
-############################
-    
-  # reg: math wkce on OHC flags
-  lm_formula <- paste("nxt_zscore_math_kce ~ flag_cur_plcmt + flag_prior_plcmt + ", lm_controls_wkce)
-  m3a_wkce_math_ohc <- lm(lm_formula, data = wkce_math_set)
-
-###############################
-# reading wkce (same process) #
-###############################
-    
-  # reg: reading wkce on OHC flags
-  lm_formula <- paste("nxt_zscore_rdg_kce ~ flag_cur_plcmt + flag_prior_plcmt + ", lm_controls_wkce)
-  m4a_wkce_rdg_ohc <- lm(lm_formula, data = wkce_rdg_set)
-
-############################################
-# compute predicted vals using reg results #
-############################################
-  
-  # attend: compute predicted values and combine with orginal data
-  pred_attend_set <- data.table(pred_att_rate = predict.lm(m1a_attend_ohc))
-  attend_set <- cbind(attend_set, pred_attend_set)
-  
-  # subset to ohc and outcome vars to summarize
-  melt_vars <- subset(attend_set, select = c(flag_cur_plcmt, flag_prior_plcmt, att_rate_wi, pred_att_rate))
-  
-  # melt ohc data long to summarize
-  summ_vars_long <- melt.data.table(melt_vars, id.vars = c("flag_cur_plcmt", "flag_prior_plcmt"))
-  
-  # table - summarize vars overall
-  a_summ_vars <- summ_vars_long[, list(n_obs = length(value),
-                                       mean = mean(value),
-                                       sd = sd(value),
-                                       se = sd(value) / sqrt(length(value))),
-                                by = c("flag_cur_plcmt", "flag_prior_plcmt", "variable")]
-  
-  N    = length(change),
-               mean = mean(change),
-               sd   = sd(change),
-               se   = sd / sqrt(N)
   
 ggplot(effect_df, aes(x = age_treatment, y = fit)) + 
   geom_bar(stat = "identity", fill = "#619CFF")  + 
