@@ -92,7 +92,7 @@
                                        sd = round(sd(value), 3), 
                                        min = round(min(value), 3),
                                        max = round(max(value), 3)),
-                                    by = variable]
+                                by = variable]
   
 #############################
 # set regression parameters #

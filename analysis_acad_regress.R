@@ -26,7 +26,7 @@
 #############
 
   # output toggle
-  p_opt_exp <- 1
+  p_opt_exp <- 0
 
 #############
 # load data #
@@ -42,12 +42,10 @@
   # copy input sets
   full_outcomes_set <- copy(in_outcomes_set)
   
-  # transform number of placement var
-  full_outcomes_set[, n_plcmt_sq := ifelse(lf_n_plcmt_acad != 0, lf_n_plcmt_acad * lf_n_plcmt_acad, 0)]
+  # transform number of placement var (log)
   full_outcomes_set[, n_plcmt_log := ifelse(lf_n_plcmt_acad != 0, log(lf_n_plcmt_acad), 0)]
 
-  # transform placement days var
-  full_outcomes_set[, plcmt_days_sq := ifelse(tot_plcmt_days_acad != 0, tot_plcmt_days_acad * tot_plcmt_days_acad, 0)]
+  # transform placement days var (log)
   full_outcomes_set[, plcmt_days_log := ifelse(tot_plcmt_days_acad != 0, log(tot_plcmt_days_acad), 0)]
   
   # transform school enrollment var
@@ -133,9 +131,9 @@
                       "d_lf_region_nc", "d_lf_region_ne", "d_lf_region_mke", "d_lf_region_se", "d_lf_region_s", "d_lf_region_w", "d_lf_region_nw")
   
   # create list of vars for subset
-  lm_var_list <- c("lf_sch_id", "flag_ohc", "flag_cur_plcmt", "flag_prior_plcmt", "lf_n_plcmt_acad", "n_plcmt_sq", "n_plcmt_log", 
-                   "tot_plcmt_days_acad", "plcmt_days_sq", "plcmt_days_log", "d_p_type_fhome_rel", "d_p_type_fhome_nonrel", "d_p_type_group_home",
-                   "d_p_type_rcc", "d_p_type_other", lm_student_controls, lm_sch_controls, lm_dummies_yr, lm_dummies_grade, lm_region_vars)
+  lm_var_list <- c("lf_sch_id", "flag_ohc", "flag_cur_plcmt", "flag_prior_plcmt", "lf_n_plcmt_acad", "n_plcmt_log", "tot_plcmt_days_acad", 
+                   "plcmt_days_log", "d_p_type_fhome_rel", "d_p_type_fhome_nonrel", "d_p_type_group_home", "d_p_type_rcc", "d_p_type_other", 
+                   lm_student_controls, lm_sch_controls, lm_dummies_yr, lm_dummies_grade, lm_region_vars)
   
 #####################################################
 # create set without missings to use in regressions #
