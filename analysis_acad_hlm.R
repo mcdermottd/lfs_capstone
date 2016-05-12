@@ -19,6 +19,7 @@
   library(lme4)
   library(arm)
   library(merTools)
+  library(shiny)
   library(apsrtable)
   library(data.table)
 
@@ -150,8 +151,7 @@
   ranks_attend <- expectedRank(m1e_attend_hlm_cur, groupFctr = "lf_county", term = "flag_cur_plcmt")
 
   
-  shinyMer(m1e_attend_hlm_cur, simData = analysis_sample[1:100, ])
-
+  # shinyMer(m1e_attend_hlm_cur, simData = analysis_sample[1:100, ])
 
 ################################
 # regressions - other outcomes #
@@ -168,10 +168,6 @@
   # lmer: wkce reading, random region intercepts with current placement at level-2
   lmer_formula <- paste("nxt_rdg_ctr ~ flag_prior_plcmt + (1 + flag_cur_plcmt | lf_county) + ", lm_controls_full)
   m4a_kce_rdg_hlm_cty_cur <- lmer(lmer_formula, data = analysis_sample)
-  
-#####################
-# format and export #
-#####################
   
 ######################
 # format export vars #
@@ -201,20 +197,21 @@
   # export
   if (p_opt_exp == 1) { 
     
+    # output summary stats
     ea_write(a_summ_vars, paste0(p_dir_out, "outcomes_summary_overall.csv"))
     ea_write(a_summ_cty, paste0(p_dir_out, "outcomes_summary_by_county.csv"))
 
-    
     # output attendance model
-    cat(apsrtable(m1e_attend_hlm_cur,
-                  se = "robust",
-                  Sweave = FALSE,
-                  float = "longtable",
-                  coef.names = c("(Intercept)", "Placement in Academic Year", "Placement in Prior Academic Year", student_control_labels,
-                                 grade_dummy_labels, school_control_labels, acad_year_labels),
-                  label = "attendance_model",
-                  caption = "Attendance Rate"),
-        file = paste0(p_dir_out, "models_attendance.tex"))
+    # cat(apsrtable(m1e_attend_hlm_cur, 
+    #               lev = 0,
+    #               Sweave = FALSE,
+    #               float = "longtable",
+    #               coef.names = c("(Intercept)", "Placement in Prior Academic Year", student_control_labels, grade_dummy_labels, school_control_labels,
+    #                              acad_year_labels),
+    #               label = "attendance_model",
+    #               caption = "Attendance Rate"),
+    #     file = paste0(p_dir_out, "models_attendance.tex"))
+    
   }
   
     
