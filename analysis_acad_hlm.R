@@ -78,7 +78,7 @@
   
   # subset to ohc and outcome vars to summarize
   melt_vars <- subset(analysis_sample, select = c(lf_child_id, lf_sch_id, lf_region, lf_county, acad_year, flag_cur_plcmt, flag_prior_plcmt, 
-                                                  att_rate_ctr, days_removed_ctr, nxt_math_ctr, nxt_rdg_ctr))
+                                                  att_rate_ctr, nxt_math_ctr, nxt_rdg_ctr))
   
   # melt ohc data long to summarize
   summ_vars_long <- melt.data.table(melt_vars, id.vars = c("lf_child_id", "lf_sch_id", "lf_region", "lf_county", "acad_year"))
@@ -146,28 +146,30 @@
   # lmer: attendance, random region intercepts with current placement at level-2
   lmer_formula <- paste("att_rate_ctr ~ flag_prior_plcmt + (1 + flag_cur_plcmt | lf_county) + ", lm_controls_full)
   m1e_attend_hlm_cur <- lmer(lmer_formula, data = analysis_sample)
-  
-  # compute county ranks
-  ranks_attend <- expectedRank(m1e_attend_hlm_cur, groupFctr = "lf_county", term = "flag_cur_plcmt")
-
-  
-  # shinyMer(m1e_attend_hlm_cur, simData = analysis_sample[1:100, ])
 
 ################################
 # regressions - other outcomes #
 ################################
   
-  # lmer: removals, random region intercepts with current placement at level-2
-  lmer_formula <- paste("days_removed_ctr ~ flag_prior_plcmt + (1 + flag_cur_plcmt | lf_county) + ", lm_controls_full)
-  m2a_remove_hlm_cty_cur <- lmer(lmer_formula, data = analysis_sample)
-  
   # lmer: wkce math, random region intercepts with current placement at level-2
-  lmer_formula <- paste("nxt_math_ctr ~ flag_prior_plcmt + (1 + flag_cur_plcmt | lf_county) + ", lm_controls_full)
-  m3a_kce_math_hlm_cty_cur <- lmer(lmer_formula, data = analysis_sample)
+  lmer_formula <- paste("nxt_math_ctr ~ flag_prior_plcmt + (1 + flag_cur_plcmt | lf_county) + ", lm_controls_wkce)
+  m2a_kce_math_hlm_cty_cur <- lmer(lmer_formula, data = analysis_sample)
   
   # lmer: wkce reading, random region intercepts with current placement at level-2
-  lmer_formula <- paste("nxt_rdg_ctr ~ flag_prior_plcmt + (1 + flag_cur_plcmt | lf_county) + ", lm_controls_full)
-  m4a_kce_rdg_hlm_cty_cur <- lmer(lmer_formula, data = analysis_sample)
+  lmer_formula <- paste("nxt_rdg_ctr ~ flag_prior_plcmt + (1 + flag_cur_plcmt | lf_county) + ", lm_controls_wkce)
+  m3a_kce_rdg_hlm_cty_cur <- lmer(lmer_formula, data = analysis_sample)
+  
+################################################
+# compute county ranks (expectedRank function) #
+################################################
+  
+  # compute county ranks
+  ranks_attend   <- data.table(expectedRank(m1e_attend_hlm_cur, groupFctr = "lf_county", term = "flag_cur_plcmt"))
+  ranks_kce_math <- data.table(expectedRank(m2a_kce_math_hlm_cty_cur, groupFctr = "lf_county", term = "flag_cur_plcmt"))
+  ranks_kce_rdg  <- data.table(expectedRank(m3a_kce_rdg_hlm_cty_cur, groupFctr = "lf_county", term = "flag_cur_plcmt"))
+  
+  # create shiny app with diagnostic info
+  # shinyMer(m1e_attend_hlm_cur, simData = analysis_sample[1:100, ])
   
 ######################
 # format export vars #
@@ -184,8 +186,8 @@
   grade_dummy_labels <- c("Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12")
                               
   # create vector of school control lables          
-  school_control_labels <- paste0("School: ", c("Total Enrollment (Log)", "Number of FRL Students", "SPED Students", "ELP Students",
-                                                 "Non-White Students", "Removals", "Avg. WKCE Math Score", "Avg. WKCE Reading Score"))
+  school_control_labels <- paste0("School: ", c("Total Enrollment (Log)", "Number of FRL Students", "SPED Students", "ELP Students", 
+                                                "Non-White Students", "Removals", "Avg. WKCE Math Score", "Avg. WKCE Reading Score"))
                                   
   # create vector of academic year lables
   acad_year_labels <- paste0("Acad. Year: ", c("2009", "2010", "2011", "2012"))
