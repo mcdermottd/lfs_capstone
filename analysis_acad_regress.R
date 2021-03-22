@@ -1,6 +1,6 @@
 ######################################################################
 # notes:
-# - purpose: regress ohc characteristics on academic outcomes (attendence, removals, wkce scores)
+# - purpose: regress ohc characteristics on academic outcomes (attendance, removals, wkce scores)
 # - inputs: formatted analysis set
 # - outputs: formatted and grouped .tex files (Latex format) for each type of academic outcome
 # - keywords: #brule
@@ -11,9 +11,10 @@
 # load packages and clear objects/log #
 #######################################
 
-  # load easimple and clear objects log
-  library(easimple)
-  ea_start()
+  # clear objects log
+  rm(list = ls(pos = ".GlobalEnv"), pos = ".GlobalEnv")
+  options(scipen = 999)
+  cat("\f")
 
   # load packages
   library(apsrtable)
@@ -33,7 +34,7 @@
 #############
 
   # load analysis set
-  in_outcomes_set <- ea_load("X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata")
+  in_outcomes_set <- data.table(read.csv("X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata", stringsAsFactors = FALSE))
 
 ###################################
 # create variable transformations #

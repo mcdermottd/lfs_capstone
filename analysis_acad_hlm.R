@@ -11,9 +11,10 @@
 # load packages and clear objects/log #
 #######################################
 
-  # load easimple and clear objects log
-  library(easimple)
-  ea_start()
+  # clear objects log
+  rm(list = ls(pos = ".GlobalEnv"), pos = ".GlobalEnv")
+  options(scipen = 999)
+  cat("\f")
 
   # load packages
   library(lme4)
@@ -35,7 +36,7 @@
 #############
 
   # load analysis set
-  in_outcomes_set <- ea_load("X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata")
+  in_outcomes_set <- data.table(read.csv("X:/LFS-Education Outcomes/data/lfs_analysis_sets/analysis_set.rdata", stringsAsFactors = FALSE))
 
 ###############################
 # structure vars for analysis #
@@ -107,7 +108,7 @@
                                 by = variable]
   
   # table - number of students by county
-  a_cty_counts <- ea_table(melt_vars, c("lf_county", "flag_cur_plcmt", "flag_prior_plcmt"))
+  a_cty_counts <- melt_vars[, .N, by = c("lf_county", "flag_cur_plcmt", "flag_prior_plcmt")]
   
 #############################
 # set regression parameters #
@@ -197,7 +198,8 @@
   if (p_opt_exp == 1) { 
     
     # output summary stats
-    ea_write(a_summ_vars, paste0(p_dir_out, "outcomes_summary_overall.csv"))
+    fwrite(a_summ_vars, paste0(p_dir_out, "outcomes_summary_overall.csv")) } 
+    
 
     # output attendance model
     # cat(apsrtable(m1e_attend_hlm_cur, 
