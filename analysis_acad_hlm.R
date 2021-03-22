@@ -1,6 +1,6 @@
 ######################################################################
 # notes:
-# - purpose:
+# - purpose: HLM regressions to investigate county-level differences in outcomes
 # - inputs: formatted analysis set
 # - outputs:
 # - keywords: #brule
@@ -198,7 +198,7 @@
   if (p_opt_exp == 1) { 
     
     # output summary stats
-    fwrite(a_summ_vars, paste0(p_dir_out, "outcomes_summary_overall.csv")) } 
+    fwrite(a_summ_vars, paste0(p_dir_out, "outcomes_summary_overall.csv"))
     
 
     # output attendance model
